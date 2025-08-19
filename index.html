@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ShellScape Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Navbar -->
+  <nav class="navbar navbar-dark bg-dark px-4">
+    <span class="navbar-brand text-info">ShellScape</span>
+    <div class="d-flex gap-3 text-warning small">
+      <span>Home</span>
+      <span>Shells</span>
+      <span>JView</span>
+      <span class="text-danger">LIVE</span>
+      <span>Impressum</span>
+    </div>
+  </nav>
+
+  <!-- Toast Container -->
+  <div class="toast-container position-fixed top-0 end-0 p-3">
+    <div id="successToast" class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+      <div class="d-flex">
+        <div class="toast-body">
+          <i class="bi bi-check-circle-fill me-2"></i>
+          <strong>Success!</strong> File processed successfully and ready for download.
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Container -->
+  <div class="container-fluid">
+    <div class="row">
+      
+      <!-- Shell Cards - 2 side by side -->
+      <div class="col-md-9 p-4">
+        <div class="shell-wrapper">
+
+        </div>
+      </div>
+
+      <!-- Sidebar -->
+      <div class="col-md-3 p-4 sidebar">
+        <div class="d-grid gap-3">
+          <button class="btn btn-cyan" onclick="reloadAll()">🔄 Reload all</button>
+
+          <div class="text-center text-info fw-bold fs-5">2538 items</div>
+            <!-- Hidden file input -->
+            <input type="file" id="jsonFileInput" accept=".json" style="display: none;">
+
+            <!-- Load More Button triggers file input -->
+            <button class="btn btn-primary" onclick="document.getElementById('jsonFileInput').click()">Load more...</button>
+
+            <!-- Download Cleaned JSON Button -->
+            <button class="btn btn-success mt-2" id="downloadCleanedBtn" disabled>Download cleaned JSON</button>
+
+          <div class="border-top border-secondary pt-3">
+            <label class="form-label text-light">Quick Filter</label>
+            <input type="text" class="form-control form-control-sm mb-2" placeholder="ID">
+            <input type="text" class="form-control form-control-sm mb-2" placeholder="assetId">
+            <input type="text" class="form-control form-control-sm mb-2" placeholder="idShort">
+            <input type="text" class="form-control form-control-sm mb-2" placeholder="displayName">
+
+            <div class="text-light small text-center mt-2">2538 / 2538</div>
+            
+            <div class="text-center">
+                <button class="btn btn-primary btn-md mt-3 px-4">Clear Quick Filter</button>
+            </div>
+
+
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
