@@ -38,11 +38,29 @@
   <!-- Main Container -->
   <div class="container-fluid">
     <div class="row">
+           <!-- Navigation Tabs -->
+    <ul class="nav nav-tabs px-4 pt-3" id="mainTabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="shells-tab" data-bs-toggle="tab" data-bs-target="#shells" type="button" role="tab" aria-controls="shells" aria-selected="true">
+          <i class="bi bi-collection me-2"></i>Shells
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="validation-tab" data-bs-toggle="tab" data-bs-target="#validation" type="button" role="tab" aria-controls="validation" aria-selected="false">
+          <i class="bi bi-shield-check me-2"></i>Rule Validation
+        </button>
+      </li>
+    </ul>
       
-      <!-- Shell Cards - 2 side by side -->
+      <!-- Main Content Tabs (Shells / Rule Validation) -->
       <div class="col-md-9 p-4">
-        <div class="shell-wrapper">
+        <div class="tab-content">
+          <div class="tab-pane fade show active shell-wrapper" id="shells" aria-labelledby="shells-tab" role="tabpanel">
 
+          </div>
+          <div class="tab-pane fade code-wrapper" id="validation" aria-labelledby="validation-tab" role="tabpanel">
+
+          </div>
         </div>
       </div>
 
@@ -73,7 +91,6 @@
             <div class="text-center">
                 <button class="btn btn-primary btn-md mt-3 px-4">Clear Quick Filter</button>
             </div>
-
 
           </div>
         </div>

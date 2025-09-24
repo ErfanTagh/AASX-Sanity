@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+    container_name: aas-backend
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+      - PYTHONPATH=/app
+    volumes:
+      - ./Backend:/app
+    networks:
+      - aas-network
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: aas-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - aas-network
+    restart: unless-stopped
+
+networks:
+  aas-network:
+    driver: bridge
+
+volumes:
+  backend-data:

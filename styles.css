@@ -167,3 +167,107 @@ body {
     font-size: 0.85rem;
     padding: 0.4em 0.65em;
   }
+
+/* Code Diff Viewer Styles */
+.code-card {
+  background-color: #1e293b;
+  color: white;
+  border: 1px solid #0ea5e9;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.code-card .card-header {
+  background-color: #0ea5e9;
+  color: white;
+  border-bottom: 1px solid #0ea5e9;
+}
+
+.code-card .nav-tabs {
+  border-bottom: 1px solid #475569;
+  margin-bottom: 0;
+  background-color: #1e293b;
+}
+
+.code-card .nav-tabs .nav-link {
+  color: #94a3b8;
+  border: none;
+  border-radius: 0;
+  padding: 0.75rem 1rem;
+  background-color: #1e293b;
+}
+
+.code-card .nav-tabs .nav-link:hover {
+  color: #f1f5f9;
+  background-color: #334155;
+}
+
+.code-card .nav-tabs .nav-link.active {
+  color: #f1f5f9;
+  background-color: #334155;
+  border-bottom: 2px solid #0ea5e9;
+}
+
+.code-card .tab-content {
+  background-color: #1e293b;
+}
+
+.code-card .code-container {
+  min-height: 400px;
+}
+
+.code-card pre {
+  font-size: 12px;
+  line-height: 1.4;
+  overflow: auto;
+  max-height: 600px;
+  margin: 0;
+  padding: 0;
+  background-color: transparent;
+  border: none;
+  color: #f1f5f9;
+}
+
+.code-card .diff-container {
+  background-color: #1f2937 !important;
+  border: 1px solid #334155 !important;
+  color: #f1f5f9 !important;
+}
+
+.code-card .text-warning {
+  color: #fb923c !important;
+}
+
+.code-card .text-info {
+  color: #0ea5e9 !important;
+}
+
+.code-card .card-footer {
+  background-color: #1e293b;
+  border-top: 1px solid #475569;
+  color: #94a3b8;
+}
+
+.code-card .btn-group .btn {
+  border-radius: 0.375rem;
+}
+
+.code-card .btn-outline-danger {
+  color: #ef4444;
+  border-color: #ef4444;
+}
+
+.code-card .btn-outline-danger:hover {
+  color: #fff;
+  background-color: #ef4444;
+  border-color: #ef4444;
+}
+
+.code-card .btn-success {
+  background-color: #22c55e;
+  border-color: #22c55e;
+}
+
+.code-card .btn-success:hover {
+  background-color: #16a34a;
+  border-color: #16a34a;
+}
