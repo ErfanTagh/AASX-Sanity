@@ -1,7 +1,7 @@
 from platform import java_ver
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
-from RuleBasedScriptToCheckBugsV04_1 import clean_json_iterative, save_cleaned_json, keys
+from RuleBasedScriptToCheckBugsV04_1 import clean_json_iterative, save_cleaned_json, keys, keys_applied_length
 from rule_processor import clean_json_stepwise # Import from new file
 from helpers import  normalize, extract_changed_parts_fast
 import json
@@ -247,6 +247,13 @@ def download_current_state():
         
     except Exception as e:
         return jsonify({'error': f'Error creating download: {str(e)}'}), 500
+
+
+@app.route('/keys-applied-length', methods=['GET'])
+def keys_applied_length_api():
+    print("DEBUG API: keys_applied_length")
+    return jsonify({'keys_applied_length': keys_applied_length()})
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

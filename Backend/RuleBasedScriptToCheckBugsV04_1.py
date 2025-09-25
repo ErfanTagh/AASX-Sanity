@@ -435,6 +435,10 @@ RULES_MAP = {
 def keys():
     unique_keys = sorted(set(keys_applied))
     return [{"id": k, "desc": RULES_MAP.get(k, "Unknown rule")} for k in unique_keys]
+
+def keys_applied_length():
+    print("DEBUG keys_applied_length: ", len(keys_applied))
+    return len(keys_applied)
 def save_cleaned_json(cleaned_data, filename=None):
     """
     Save cleaned JSON data to a file with timestamp.

@@ -15,6 +15,10 @@ document.addEventListener("DOMContentLoaded", function () {
   let complete_before_data = null;
   let currentRule = null;
   let skipRules = [];
+  // Status counters
+  let pendingCount = 0;
+  let approvedCount = 0;
+  let rejectedCount = 0;
 
   // Add global variable to track rejected rules
   let rejectedRules = [];
@@ -96,7 +100,21 @@ document.addEventListener("DOMContentLoaded", function () {
            });
            successToast.show();
 
-           // Display the cleaned JSON as cards with diff view
+          // Initialize status counters
+          try {
+            fetch("http://localhost:5000/keys-applied-length")
+              .then(r => r.json())
+              .then(d => {
+                if (typeof d.keys_applied_length === "number") {
+                  pendingCount = d.keys_applied_length;
+                  const el = document.getElementById("pendingCount");
+                  if (el) el.textContent = String(pendingCount);
+                }
+              })
+              .catch(() => {});
+          } catch (_) {}
+
+          // Display the cleaned JSON as cards with diff view
            try {
             if (Array.isArray(jsonData["JSON"])) {
               jsonData["JSON"].forEach((item, index) => {
@@ -261,6 +279,12 @@ document.addEventListener("DOMContentLoaded", function () {
         </h4>
       </div>
       
+      <div class="validation-header">
+          <h2><i class="bi bi-shield-check"></i> Rule Validation System</h2>
+          <p>Review and approve/reject rule-based changes to your JSON files</p>
+      </div>
+
+      
       <div class="card-body p-0">
         <!-- Tab Navigation -->
         <ul class="nav nav-tabs" role="tablist">
@@ -347,6 +371,34 @@ document.addEventListener("DOMContentLoaded", function () {
           </div>
         </div>
       </div>
+
+      <!-- Status Display -->
+        <div class="status-bar">
+          <div class="status-item">
+            <div class="status-number pending" id="pendingCount">0</div>
+            <div class="status-label">Pending</div>
+          </div>
+          <div class="status-item">
+            <div class="status-number approved" id="approvedCount">0</div>
+            <div class="status-label">Approved</div>
+          </div>
+          <div class="status-item">
+            <div class="status-number rejected" id="rejectedCount">0</div>
+            <div class="status-label">Rejected</div>
+          </div>
+        </div>
+
+        <!-- Changes Container -->
+        <div id="changesContainer" style="display: none;">
+          <h4><i class="bi bi-list-check"></i> Pending Changes</h4>
+          <div id="pendingChangesList" class="mb-4"></div>
+          
+          <h4><i class="bi bi-check-circle"></i> Approved Changes</h4>
+          <div id="approvedChangesList" class="mb-4"></div>
+          
+          <h4><i class="bi bi-x-circle"></i> Rejected Changes</h4>
+          <div id="rejectedChangesList" class="mb-4"></div>
+        </div>
       
     `;
     return card;
@@ -367,27 +419,29 @@ document.addEventListener("DOMContentLoaded", function () {
     
     
     card.innerHTML = `
-      <div class="card-header bg-primary text-white">
+      <div class="card-header bg-primary text-white ">
         <h4 class="mb-0">
           <i class="bi bi-file-diff me-2"></i>
           Changes Applied & Final Results
         </h4>
       </div>
       
-      <div class="card-body">
-        <div class="row mt-3">
+      <div class="card-body p-0">
+        <div class="row g-0 code-container">
           ${diffView ? `
-            <div class="col-md-6">
-              <h6 class="text-warning">Changes Applied:</h6>
-              <div class="diff-container bg-dark text-light p-2 rounded" style="max-height:600px; overflow:auto; font-family: 'Courier New', monospace; font-size: 12px;">
-                ${diffView}
-              </div>
+          <div class="col-md-6 border-end">
+            <h6 class="text-warning p-2 m-0">Changes Applied:</h6>
+            <div class="diff-container bg-dark text-light p-2 rounded" style="max-height:600px; overflow:auto; font-family: 'Courier New', monospace; font-size: 12px;">
+              ${diffView}
             </div>
+          </div>
           ` : ''}
           
           <div class="${diffView ? 'col-md-6' : 'col-md-12'}">
-            <h6 class="text-info">Final Result:</h6>
-            <pre class="bg-dark text-light p-2 mt-2 small" style="max-height:600px; overflow:auto;">${escapeHTML(JSON.stringify(data, null, 2))}</pre>
+            <h6 class="text-info p-2 m-0">Final Result:</h6>
+            <div class="diff-container bg-dark text-light p-2 rounded" style="max-height:600px; overflow:auto; font-family: 'Courier New', monospace; font-size: 12px;">
+              <pre class="m-0"><code>${escapeHTML(JSON.stringify(data, null, 2))}</code></pre>
+            </div>
           </div>
         </div>
       </div>
@@ -561,6 +615,14 @@ document.addEventListener("DOMContentLoaded", function () {
       if (data.Complete_after_data) complete_after_data = data.Complete_after_data;
       if (data.Complete_before_data) complete_before_data = data.Complete_before_data;
       
+      // Update counters
+      rejectedCount += 1;
+      if (pendingCount > 0) pendingCount -= 1;
+      const rejEl = document.getElementById('rejectedCount');
+      const penEl = document.getElementById('pendingCount');
+      if (rejEl) rejEl.textContent = String(rejectedCount);
+      if (penEl) penEl.textContent = String(pendingCount);
+
       // Update the UI with new before/after data
       if (data.AFTER) {
         updateCodeCardContent(data.BEFORE || before, data.AFTER);
@@ -628,6 +690,14 @@ document.addEventListener("DOMContentLoaded", function () {
       if (data.Complete_after_data) complete_after_data = data.Complete_after_data;
       if (data.Complete_before_data) complete_before_data = data.Complete_before_data;
       
+      // Update counters
+      approvedCount += 1;
+      if (pendingCount > 0) pendingCount -= 1;
+      const appEl = document.getElementById('approvedCount');
+      const penEl = document.getElementById('pendingCount');
+      if (appEl) appEl.textContent = String(approvedCount);
+      if (penEl) penEl.textContent = String(pendingCount);
+
       // Update the UI with new before/after data from API response
       if (data.AFTER) {
         updateCodeCardContent(data.BEFORE || after, data.AFTER);
