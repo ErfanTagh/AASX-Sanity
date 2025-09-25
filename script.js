@@ -116,6 +116,12 @@ document.addEventListener("DOMContentLoaded", function () {
               const codeCard = createCodeCard(before, after, before_full, after_full);
               shellInteractive.innerHTML = "";
               shellInteractive.appendChild(codeCard);
+              
+              // Create changes and results card for the new tab
+              const changesResultsCard = createChangesResultsCard(jsonData["JSON"], originalJson, keys);
+              const changesResultsWrapper = document.querySelector(".changes-results-wrapper");
+              changesResultsWrapper.innerHTML = "";
+              changesResultsWrapper.appendChild(changesResultsCard);
             } else if (typeof jsonData["JSON"] === "object") {
               const card = createShellCard(jsonData["JSON"], originalJson, keys);
               shellWrapper.appendChild(card);
@@ -123,6 +129,12 @@ document.addEventListener("DOMContentLoaded", function () {
               const codeCard = createCodeCard(before, after, before_full, after_full);
               shellInteractive.innerHTML = "";
               shellInteractive.appendChild(codeCard);
+              
+              // Create changes and results card for the new tab
+              const changesResultsCard = createChangesResultsCard(jsonData["JSON"], originalJson, keys);
+              const changesResultsWrapper = document.querySelector(".changes-results-wrapper");
+              changesResultsWrapper.innerHTML = "";
+              changesResultsWrapper.appendChild(changesResultsCard);
             } else {
               alert("Unsupported JSON format from server.");
             }
@@ -232,21 +244,7 @@ document.addEventListener("DOMContentLoaded", function () {
       </table>
     </div>
       
-      <div class="row mt-3">
-        ${diffView ? `
-          <div class="col-md-6">
-            <h6 class="text-warning">Changes Applied:</h6>
-            <div class="diff-container bg-dark text-light p-2 rounded" style="max-height:600px; overflow:auto; font-family: 'Courier New', monospace; font-size: 12px;">
-              ${diffView}
-            </div>
-          </div>
-        ` : ''}
-        
-        <div class="${diffView ? 'col-md-6' : 'col-md-12'}">
-          <h6 class="text-info">Final Result:</h6>
-          <pre class="bg-dark text-light p-2 mt-2 small" style="max-height:600px; overflow:auto;">${escapeHTML(JSON.stringify(data, null, 2))}</pre>
-        </div>
-      </div>
+
     `;
 
     return card;
@@ -350,6 +348,49 @@ document.addEventListener("DOMContentLoaded", function () {
         </div>
       </div>
       
+    `;
+    return card;
+  }
+
+  function createChangesResultsCard(data,originalData,keys = []) {
+    const card = document.createElement("div");
+    card.className = "code-card card shadow";
+    
+        // Generate diff view with error handling
+        let diffView = "";
+        try {
+          diffView = originalData ? generateDetailedDiffView(originalData, data) : "";
+        } catch (error) {
+          console.error("Error generating diff view:", error);
+          diffView = '<div class="diff-line unchanged">Error generating diff view</div>';
+        }
+    
+    
+    card.innerHTML = `
+      <div class="card-header bg-primary text-white">
+        <h4 class="mb-0">
+          <i class="bi bi-file-diff me-2"></i>
+          Changes Applied & Final Results
+        </h4>
+      </div>
+      
+      <div class="card-body">
+        <div class="row mt-3">
+          ${diffView ? `
+            <div class="col-md-6">
+              <h6 class="text-warning">Changes Applied:</h6>
+              <div class="diff-container bg-dark text-light p-2 rounded" style="max-height:600px; overflow:auto; font-family: 'Courier New', monospace; font-size: 12px;">
+                ${diffView}
+              </div>
+            </div>
+          ` : ''}
+          
+          <div class="${diffView ? 'col-md-6' : 'col-md-12'}">
+            <h6 class="text-info">Final Result:</h6>
+            <pre class="bg-dark text-light p-2 mt-2 small" style="max-height:600px; overflow:auto;">${escapeHTML(JSON.stringify(data, null, 2))}</pre>
+          </div>
+        </div>
+      </div>
     `;
     return card;
   }
