@@ -249,4 +249,4 @@ def download_current_state():
         return jsonify({'error': f'Error creating download: {str(e)}'}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)
