@@ -1,44 +1,341 @@
-# AAS Sanity
+# AAS Sanity Checker
 
-## Name
-AAS Sanity
+A web-based tool for validating and automatically fixing Asset Administration Shell (AAS) JSON files according to AAS specifications. This tool helps reduce manual error handling by automatically detecting and correcting both meta-model and constraint-related errors.
 
-## About the Project
+## 🎯 About the Project
 
-This project defined as a Master project project for a student. The project aims to facilitate the validation phase of the AASes by make the Error handling automatically and reduce the manual work as much as possible.
-The projecz contains a simple GUI for users to upload they AAS JSON file, and get the new version of their file with less errors. The Errors that are covered in the backend are both Meta model related and Contraints related errors to be aligned with AAS specification.
-In the backend there is Rule-based script, currently 21 rules, that run through the AAS JSON file and handle the found errors.
+AAS Sanity Checker is a Master's project designed to facilitate the validation phase of Asset Administration Shells (AAS). The project aims to:
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+- Automatically handle common AAS errors
+- Reduce manual validation work
+- Provide an interactive review process for rule-based corrections
+- Ensure compliance with AAS specifications
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+The system uses a rule-based approach with 18 specialized rules that detect and fix common issues in AAS JSON files, covering both meta-model structure and constraint violations.
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+## ✨ Features
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+### 🔍 **Interactive Rule Validation**
+- **Step-by-step review**: Review each rule change individually before applying
+- **Accept/Reject decisions**: Full control over which rules to apply
+- **Real-time diff view**: See exactly what changes before accepting
+- **Accept All & Download**: Fast-track option to accept all remaining rules at once
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+### 📊 **Three-Pane Comparison View**
+- **Original Upload**: View the unmodified JSON you uploaded
+- **Current State**: See the current state with your accepted changes
+- **Final Result**: Preview the fully cleaned JSON with all rules applied
+- **Resizable panes**: Drag dividers to adjust pane sizes
 
-## Support
-In case of questions you reach MoPo, Monireh.Pourjafarian@smartfactory.de
+### 📜 **Rule Validation History**
+- Track all accept/reject decisions
+- View before/after for any historical decision
+- Download any previous state
+- Complete audit trail with timestamps
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+### 🎨 **Modern UI**
+- Dark theme optimized for code review
+- Bootstrap 5 based responsive design
+- Loading indicators for all async operations
+- Toast notifications for success messages
 
-## Contributing
-We are very open to contributions, feel free to contact MoPo.
+### 🔧 **18 Validation Rules**
 
+The system includes 18 specialized rules covering:
 
-## Authors and acknowledgment
+1. **Meta-Model Validation**:
+   - Remove empty lists and arrays
+   - Clean up empty semantic IDs and value IDs
+   - Handle empty idShort fields
+   - Fix SubmodelElementCollection structures
+   - Manage ReferenceElement values
 
+2. **Constraint Validation**:
+   - Set default file names for File elements
+   - Fix entity types (SelfManagedEntity → CoManagedEntity)
+   - Handle MultiLanguageProperty defaults
+   - Convert ConceptDescription to GlobalReference
+   - Fix boolean string conversions
+   - Add missing DataSpecification definitions
 
-## License
-For open source projects, say how it is licensed.
+3. **Data Cleanup**:
+   - Remove BulkCount elements with empty values
+   - Fix language codes (en? → en)
+   - Handle empty Property values based on valueType
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+## 🚀 Getting Started
+
+### Prerequisites
+
+- **Docker** and **Docker Compose** installed on your system
+- No other software required!
+
+### Installation & Running with Docker
+
+1. **Clone the repository**:
+   ```bash
+   git clone <repository-url>
+   cd PythonProject2
+   ```
+
+2. **Start the application**:
+   ```bash
+   docker compose up -d --build
+   ```
+
+   This command will:
+   - Build the backend (Flask API) container
+   - Build the frontend (Nginx) container
+   - Start both services in detached mode
+   - Set up networking between containers
+
+3. **Access the application**:
+   - Open your browser and navigate to: **http://localhost**
+   - The backend API runs on: **http://localhost:5000**
+
+4. **Stop the application**:
+   ```bash
+   docker compose down
+   ```
+
+5. **Rebuild after code changes**:
+   ```bash
+   docker compose down
+   docker compose up -d --build
+   ```
+
+### Docker Services
+
+The application consists of two Docker services:
+
+- **Backend (Flask)**: Python-based REST API on port 5000
+- **Frontend (Nginx)**: Static web server on port 80
+
+Both services are connected via a Docker network and restart automatically unless stopped.
+
+## 📖 Usage Guide
+
+### Basic Workflow
+
+1. **Upload JSON File**:
+   - Click "Load more..." button in the sidebar
+   - Select your AAS JSON file
+   - The system automatically processes it and shows the first rule change
+
+2. **Review Changes** (Tab 2: Rule Validation):
+   - View the **Before** and **After** side-by-side
+   - See which rule is being applied
+   - Choose to **Accept**, **Reject**, or **Accept All & Download**
+
+3. **Track Progress**:
+   - Monitor **Pending**, **Approved**, and **Rejected** counters
+   - View real-time status of validation progress
+
+4. **View Results** (Tab 3: Changes & Results):
+   - See complete validation history
+   - Compare Original → Current → Final states
+   - Download any historical state
+
+5. **Download**:
+   - **Download Current State**: Get JSON at current validation point
+   - **Download cleaned JSON**: Get fully processed JSON (all rules)
+   - **Accept All & Download**: Auto-accept remaining rules and download
+
+### Advanced Features
+
+#### **Quick Filter** (Tab 3)
+- Filter the finished JSON by ID, assetId, idShort, or displayName
+- Real-time search with live result count
+- Only visible in the Changes & Results tab
+
+#### **State History**
+- Every accepted change creates a new state
+- Download any previous state as JSON
+- View detailed before/after diff for any decision
+
+## 🏗️ Project Structure
+
+```
+PythonProject2/
+├── Backend/
+│   ├── api.py                          # Flask REST API
+│   ├── rule_processor.py               # Step-by-step rule processing
+│   ├── RuleBasedScriptToCheckBugsV04_1.py  # Core rule functions
+│   ├── helpers.py                      # Utility functions
+│   ├── requirements.txt                # Python dependencies
+│   └── Dockerfile                      # Backend Docker configuration
+├── index.html                          # Main HTML page
+├── script.js                           # Frontend JavaScript logic
+├── styles.css                          # Custom CSS styling
+├── docker-compose.yml                  # Docker orchestration
+├── Dockerfile.frontend                 # Frontend Docker configuration
+└── README.md                           # This file
+```
+
+## 🔌 API Endpoints
+
+### Main Endpoints:
+- `POST /upload` - Upload and process JSON file
+- `POST /accept-changes` - Accept current rule change
+- `POST /reject-changes` - Reject current rule change
+- `POST /get-next-change` - Get next rule to review
+- `GET /download/<filename>` - Download processed file
+- `POST /download-current-state` - Download current validation state
+- `POST /apply-single-rule` - Apply a specific rule repeatedly
+
+## 🛠️ Development
+
+### Running Without Docker
+
+#### Backend:
+```bash
+cd Backend
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+python api.py
+```
+
+#### Frontend:
+Serve the root directory with any web server:
+```bash
+python -m http.server 8080
+```
+
+### Making Changes
+
+After modifying code:
+```bash
+# Rebuild and restart
+docker compose down
+docker compose up -d --build
+
+# Or rebuild without cache (for major changes)
+docker compose build --no-cache
+docker compose up -d
+```
+
+### View Logs
+
+```bash
+# View all logs
+docker compose logs
+
+# Follow backend logs
+docker compose logs -f backend
+
+# Follow frontend logs
+docker compose logs -f frontend
+```
+
+## 📋 Rule Reference
+
+| Rule # | Category | Description |
+|--------|----------|-------------|
+| 1 | Meta-Model | Remove specified keys if they are empty lists |
+| 2 | Meta-Model | Remove semanticId with empty keys |
+| 3 | Meta-Model | Remove valueId with empty keys |
+| 4 | Meta-Model | Remove empty idShort fields |
+| 5 | Meta-Model | Set default file names for File elements |
+| 6 | Meta-Model | Add default keys for AnnotatedRelationshipElement |
+| 7 | Meta-Model | Remove empty value in SubmodelElementCollection |
+| 8 | Constraints | Change entityType to CoManagedEntity when appropriate |
+| 9 | Constraints | Add default values for MultiLanguageProperty |
+| 10 | Constraints | Fix ConceptDescription to GlobalReference |
+| 11 | Meta-Model | Remove empty ReferenceElement values |
+| 12 | Meta-Model | Remove idShort in SubmodelElementCollection value items |
+| 13 | Constraints | Set default value for Property with empty value |
+| 14 | Constraints | Fix language code 'en?' to 'en' |
+| 15 | Constraints | Convert boolean strings to numeric equivalents |
+| 16 | Meta-Model | Handle MultiLanguageProperty with empty arrays |
+| 17 | Constraints | Add missing DataSpecification definitions |
+| 18 | Meta-Model | Remove BulkCount elements with empty values |
+
+## 🎨 User Interface
+
+### Tab 1: Shells
+- View all AAS shells in your uploaded file
+- Card-based display with syntax highlighting
+- Shows applied rules with color-coded badges
+
+### Tab 2: Rule Validation
+- Interactive rule-by-rule validation
+- Side-by-side before/after comparison
+- Accept, Reject, or Accept All options
+- Real-time status counters (Pending/Approved/Rejected)
+- Loading indicators during processing
+
+### Tab 3: Changes & Results
+- **Rule Validation History**: Complete audit trail of all decisions
+- **Three-pane comparison**: Original → Current → Final
+- **Resizable panes**: Drag dividers to adjust view
+- **Quick Filter**: Search through finished JSON
+
+## 🔒 Security Features
+
+- File type validation (JSON only)
+- Path traversal prevention in downloads
+- CORS enabled for local development
+- Input sanitization and validation
+
+## 🐛 Troubleshooting
+
+### Container Issues
+```bash
+# Check container status
+docker compose ps
+
+# View logs for errors
+docker compose logs backend
+docker compose logs frontend
+
+# Restart services
+docker compose restart
+```
+
+### Port Conflicts
+If ports 80 or 5000 are already in use, modify `docker-compose.yml`:
+```yaml
+ports:
+  - "8080:80"    # Frontend
+  - "5001:5000"  # Backend
+```
+
+### Code Changes Not Reflecting
+```bash
+# Force rebuild without cache
+docker compose down
+docker compose build --no-cache
+docker compose up -d
+```
+
+## 📞 Support
+
+For questions or issues, contact:
+- **Monireh Pourjafarian**: Monireh.Pourjafarian@smartfactory.de
+
+## 🤝 Contributing
+
+Contributions are welcome! Feel free to:
+- Report bugs
+- Suggest new features
+- Submit pull requests
+- Improve documentation
+
+## 📄 License
+
+This project is part of academic research. Please contact the maintainers for licensing information.
+
+## 🎓 Project Status
+
+Active development as part of a Master's project. The tool is functional and ready for use in AAS validation workflows.
+
+## 🙏 Acknowledgments
+
+- Developed as part of a Master's project
+- SmartFactory-KL for project support
+- AAS specification community
+
+---
+
+**Made with ❤️ for the AAS Community**

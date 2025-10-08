@@ -467,3 +467,290 @@ body {
         gap: 0.5rem;
       }
     }
+
+
+    /* Resizable split pane for Changes & Results tab */
+.resizable-container {
+  display: flex;
+  height: 600px;
+  position: relative;
+  width: 100%;
+}
+
+.resizable-pane {
+  overflow: auto;
+  position: relative;
+  background-color: #1f2937;
+}
+
+.resizable-pane.left {
+  flex: 1;
+  min-width: 200px;
+}
+
+.resizable-pane.right {
+  flex: 1;
+  min-width: 200px;
+}
+
+.resizable-divider {
+  width: 8px;
+  background-color: #475569;
+  cursor: col-resize;
+  position: relative;
+  flex-shrink: 0;
+  transition: background-color 0.2s;
+}
+
+.resizable-divider:hover {
+  background-color: #0ea5e9;
+}
+
+.resizable-divider:active {
+  background-color: #0284c7;
+}
+
+/* Visual indicator on hover */
+.resizable-divider::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 4px;
+  height: 40px;
+  background-color: rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
+}
+
+.resizable-divider:hover::before {
+  background-color: rgba(255, 255, 255, 0.6);
+}
+
+/* Resize cursor during drag */
+body.resizing {
+  cursor: col-resize !important;
+  user-select: none;
+}
+
+body.resizing * {
+  cursor: col-resize !important;
+}
+
+/* Change History Section */
+#changesHistorySection {
+  margin-bottom: 2rem;
+}
+
+#changesHistorySection .card {
+  border: 1px solid #475569;
+}
+
+#changesHistorySection .card-header {
+  background-color: #334155;
+  border-bottom: 1px solid #475569;
+}
+
+#changesHistorySection .table {
+  margin-bottom: 0;
+}
+
+#changesHistorySection .table thead {
+  background-color: #1e293b;
+  border-bottom: 2px solid #475569;
+}
+
+#changesHistorySection .table thead th {
+  color: #f1f5f9;
+  font-weight: 600;
+  padding: 1rem;
+  border: none;
+}
+
+#changesHistorySection .table tbody tr {
+  border-bottom: 1px solid #334155;
+  transition: background-color 0.2s;
+}
+
+#changesHistorySection .table tbody tr:hover {
+  background-color: #334155 !important;
+}
+
+#changesHistorySection .table tbody td {
+  padding: 0.75rem 1rem;
+  vertical-align: middle;
+  border: none;
+}
+
+#changesHistorySection .badge {
+  font-size: 0.9em;
+  padding: 0.4em 0.8em;
+  font-weight: 500;
+}
+
+#changesHistorySection .btn-outline-info {
+  border-color: #0ea5e9;
+  color: #0ea5e9;
+  font-size: 0.85rem;
+  padding: 0.25rem 0.75rem;
+}
+
+#changesHistorySection .btn-outline-info:hover {
+  background-color: #0ea5e9;
+  color: white;
+}
+
+/* History Detail Modal */
+.modal-content.bg-dark {
+  border: 1px solid #475569;
+}
+
+.modal-header {
+  border-bottom: 1px solid #475569;
+}
+
+.modal-footer {
+  border-top: 1px solid #475569;
+}
+
+.modal-body pre {
+  background-color: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 0.375rem;
+}
+
+.modal-body pre code {
+  color: #f1f5f9;
+  font-family: 'Courier New', Consolas, monospace;
+  font-size: 0.875rem;
+}
+
+/* Scrollbar for history table */
+#changesHistorySection .table-responsive {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+#changesHistorySection .table-responsive::-webkit-scrollbar {
+  width: 8px;
+}
+
+#changesHistorySection .table-responsive::-webkit-scrollbar-track {
+  background: #1f2937;
+  border-radius: 4px;
+}
+
+#changesHistorySection .table-responsive::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 4px;
+}
+
+#changesHistorySection .table-responsive::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* Three-pane resizable layout */
+.resizable-container-three {
+  display: flex;
+  flex-direction: row;
+  height: 600px;
+  position: relative;
+  width: 100%;
+}
+
+.resizable-pane-three {
+  overflow: auto;
+  position: relative;
+  background-color: #1f2937;
+  display: flex;
+  flex-direction: column;
+}
+
+.resizable-pane-three.history {
+  flex: 1 1 25%;
+  min-width: 150px;
+}
+
+.resizable-pane-three.middle {
+  flex: 1 1 37.5%;
+  min-width: 150px;
+}
+
+.resizable-pane-three.right {
+  flex: 1 1 37.5%;
+  min-width: 150px;
+}
+
+.resizable-divider-three {
+  width: 8px;
+  background-color: #475569;
+  cursor: col-resize;
+  position: relative;
+  flex-shrink: 0;
+  transition: background-color 0.2s;
+}
+
+.resizable-divider-three:hover {
+  background-color: #0ea5e9;
+}
+
+.resizable-divider-three:active {
+  background-color: #0284c7;
+}
+
+/* Visual indicator on hover for three-pane dividers */
+.resizable-divider-three::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 4px;
+  height: 40px;
+  background-color: rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
+}
+
+.resizable-divider-three:hover::before {
+  background-color: rgba(255, 255, 255, 0.6);
+}
+
+/* Loading Overlay */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(5px);
+  z-index: 9999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.loading-spinner {
+  text-align: center;
+  background-color: #1e293b;
+  padding: 3rem 4rem;
+  border-radius: 1rem;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  border: 2px solid #0ea5e9;
+}
+
+.loading-text h5 {
+  color: #f1f5f9;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+
+.loading-text p {
+  color: #94a3b8;
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.spinner-border {
+  border-width: 0.3rem;
+}

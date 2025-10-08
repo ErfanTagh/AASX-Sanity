@@ -4,6 +4,9 @@ document.addEventListener("DOMContentLoaded", function () {
   const shellInteractive = document.querySelector(".code-wrapper");
 
   const downloadBtn = document.getElementById("downloadCleanedBtn");
+  const loadingOverlay = document.getElementById("loadingOverlay");
+  const loadingMessage = document.getElementById("loadingMessage");
+  
   let lastCleanedJson = null;
   let originalJson = null;
   let originalFilename = null;
@@ -16,13 +19,33 @@ document.addEventListener("DOMContentLoaded", function () {
   let currentRule = null;
   let skipRules = [];
   // Status counters
+
   let pendingCount = 0;
   let approvedCount = 0;
   let rejectedCount = 0;
 
   // Add global variable to track rejected rules
   let rejectedRules = [];
-
+  
+  // Loading helper functions
+  function showLoading(message = "Processing...") {
+    if (loadingOverlay) {
+      loadingOverlay.style.display = 'flex';
+      if (loadingMessage) {
+        loadingMessage.textContent = message;
+      }
+    }
+  }
+  
+  function hideLoading() {
+    if (loadingOverlay) {
+      loadingOverlay.style.display = 'none';
+    }
+  }
+  
+  // Track history of all accept/decline decisions
+  let changeHistory = [];
+  
   // Add function to add a rule to the rejected list
   function addRejectedRule(ruleNumber) {
     if (!rejectedRules.includes(ruleNumber)) {
@@ -36,6 +59,232 @@ document.addEventListener("DOMContentLoaded", function () {
     rejectedRules = [];
     console.log("Rejected rules reset");
   }
+  
+  // Add change to history - track both accepted and rejected
+  function addToChangeHistory(ruleNumber, action, beforeData, afterData, completeAfterJson) {
+    const historyItem = {
+      ruleNumber: ruleNumber,
+      action: action, // 'accepted' or 'rejected'
+      timestamp: new Date().toISOString(),
+      before: beforeData, // Fragment that changed
+      after: afterData, // Fragment after change
+      completeAfterJson: action === 'accepted' ? completeAfterJson : null, // Full JSON only for accepted changes
+      state: action === 'accepted' ? (changeHistory.filter(h => h.action === 'accepted').length + 1) : null
+    };
+    changeHistory.push(historyItem);
+    updateChangesHistoryDisplay();
+  }
+  
+  // Update the changes history display in tab 3
+  function updateChangesHistoryDisplay() {
+    const historySection = document.getElementById('changesHistorySection');
+    if (!historySection) return;
+    
+    // Build history HTML
+    let historyHTML = `
+      <div class="card bg-dark text-light shadow mb-3">
+        <div class="card-header bg-secondary d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">
+            <i class="bi bi-clock-history me-2"></i>
+            Rule Validation History (${changeHistory.length} decisions)
+          </h5>
+          <span class="badge bg-info">
+            ${changeHistory.filter(h => h.action === 'accepted').length} Accepted | 
+            ${changeHistory.filter(h => h.action === 'rejected').length} Rejected
+          </span>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+            <table class="table table-dark table-hover table-sm mb-0">
+              <thead style="position: sticky; top: 0; background-color: #1e293b; z-index: 1;">
+                <tr>
+                  <th width="8%">#</th>
+                  <th width="12%">Rule</th>
+                  <th width="15%">Action</th>
+                  <th width="20%">Timestamp</th>
+                  <th width="10%">State</th>
+                  <th width="35%">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+    `;
+    
+    if (changeHistory.length === 0) {
+      historyHTML += `
+        <tr>
+          <td colspan="6" class="text-center text-muted p-4">
+            <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+            <p class="mt-2 mb-0">No decisions made yet. Accept or reject changes in the Rule Validation tab.</p>
+          </td>
+        </tr>
+      `;
+    } else {
+      // Show in reverse chronological order (newest first)
+      changeHistory.slice().reverse().forEach((item, index) => {
+        const actualIndex = changeHistory.length - index - 1;
+        const timeFormatted = new Date(item.timestamp).toLocaleString();
+        const actionBadge = item.action === 'accepted' 
+          ? '<span class="badge bg-success"><i class="bi bi-check-circle"></i> Accepted</span>'
+          : '<span class="badge bg-danger"><i class="bi bi-x-circle"></i> Rejected</span>';
+        
+        const stateBadge = item.state 
+          ? `<span class="badge bg-info">State ${item.state}</span>`
+          : '<span class="badge bg-secondary">-</span>';
+        
+        historyHTML += `
+          <tr class="${item.action === 'accepted' ? 'table-success' : 'table-danger'}" style="--bs-table-bg-opacity: 0.1;">
+            <td><strong>${changeHistory.length - index}</strong></td>
+            <td><span class="badge bg-primary">Rule ${item.ruleNumber}</span></td>
+            <td>${actionBadge}</td>
+            <td><small>${timeFormatted}</small></td>
+            <td>${stateBadge}</td>
+            <td>
+              <button class="btn btn-sm btn-outline-info me-1" onclick="showHistoryDetail(${actualIndex})" title="View Diff">
+                <i class="bi bi-eye"></i> View
+              </button>
+              ${item.action === 'accepted' ? `
+                <button class="btn btn-sm btn-outline-success" onclick="downloadHistoryState(${actualIndex})" title="Download State">
+                  <i class="bi bi-download"></i> Download
+                </button>
+              ` : ''}
+            </td>
+          </tr>
+        `;
+      });
+    }
+    
+    historyHTML += `
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    historySection.innerHTML = historyHTML;
+  }
+  
+  // Update the current state pane
+  function updateCurrentStateDisplay(currentData) {
+    const currentStateContent = document.getElementById('currentStateContent');
+    if (!currentStateContent) return;
+    
+    const jsonHtml = `<pre class="m-0"><code>${escapeHTML(JSON.stringify(currentData || {}, null, 2))}</code></pre>`;
+    currentStateContent.innerHTML = jsonHtml;
+  }
+  
+  // Show detailed view of a history item
+  window.showHistoryDetail = function(index) {
+    const item = changeHistory[index];
+    if (!item) return;
+    
+    const actionText = item.action === 'accepted' ? 'Accepted' : 'Rejected';
+    const actionClass = item.action === 'accepted' ? 'success' : 'danger';
+    const stateText = item.state ? `State ${item.state}` : 'No State Change';
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal fade';
+    modal.innerHTML = `
+      <div class="modal-dialog modal-xl">
+        <div class="modal-content bg-dark text-light">
+          <div class="modal-header border-${actionClass}">
+            <h5 class="modal-title">
+              <span class="badge bg-${actionClass}">${actionText}</span>
+              Rule ${item.ruleNumber} - ${stateText}
+            </h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <strong>Timestamp:</strong> ${new Date(item.timestamp).toLocaleString()}
+              <span class="ms-3"><strong>Action:</strong> <span class="badge bg-${actionClass}">${actionText}</span></span>
+              ${item.state ? `<span class="ms-3"><strong>Result:</strong> <span class="badge bg-info">State ${item.state}</span></span>` : ''}
+            </div>
+            <div class="row">
+              <div class="col-md-6">
+                <h6 class="text-warning">
+                  <i class="bi bi-file-earmark-code"></i> Before:
+                  ${item.state && item.state > 1 ? ` (State ${item.state - 1})` : ' (Original)'}
+                </h6>
+                <pre class="bg-secondary p-3 rounded" style="max-height: 500px; overflow: auto;"><code>${escapeHTML(JSON.stringify(item.before, null, 2))}</code></pre>
+              </div>
+              <div class="col-md-6">
+                <h6 class="${item.action === 'accepted' ? 'text-success' : 'text-danger'}">
+                  <i class="bi bi-file-earmark-${item.action === 'accepted' ? 'check' : 'x'}"></i> After:
+                  ${item.action === 'accepted' ? (item.state ? ` (State ${item.state})` : '') : ' (Rejected - Not Applied)'}
+                </h6>
+                <pre class="bg-secondary p-3 rounded" style="max-height: 500px; overflow: auto;"><code>${escapeHTML(JSON.stringify(item.after, null, 2))}</code></pre>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            ${item.action === 'accepted' ? `
+              <button type="button" class="btn btn-success" onclick="downloadHistoryState(${index})">
+                <i class="bi bi-download"></i> Download State ${item.state}
+              </button>
+            ` : ''}
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    const bsModal = new bootstrap.Modal(modal);
+    bsModal.show();
+    
+    modal.addEventListener('hidden.bs.modal', () => {
+      modal.remove();
+    });
+  };
+  
+  // Download a specific history state - downloads the complete JSON
+  window.downloadHistoryState = function(index) {
+    const item = changeHistory[index];
+    if (!item) return;
+    
+    // Download the complete JSON file, not just the fragment
+    const completeJson = item.completeAfterJson || item.after;
+    const dataStr = JSON.stringify(completeJson, null, 2);
+    const dataBlob = new Blob([dataStr], {type: 'application/json'});
+    const url = URL.createObjectURL(dataBlob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    const timestamp = new Date(item.timestamp).toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    a.download = `${item.action}_rule_${item.ruleNumber}_${item.state ? `state_${item.state}_` : ''}${timestamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  // Quick Filter toggle functionality
+function initQuickFilterToggle() {
+  const quickFilterSection = document.getElementById('quickFilterSection');
+  
+  // Initially hide the Quick Filter
+  if (quickFilterSection) {
+    quickFilterSection.style.display = 'none';
+  }
+  
+  // Listen to Bootstrap tab events
+  const tabButtons = document.querySelectorAll('button[data-bs-toggle="tab"]');
+  tabButtons.forEach(button => {
+    button.addEventListener('shown.bs.tab', function(event) {
+      const targetTab = event.target.getAttribute('data-bs-target');
+      
+      // Show Quick Filter only on Changes & Results tab
+      if (quickFilterSection) {
+        quickFilterSection.style.display = 
+          targetTab === '#changes-results' ? 'block' : 'none';
+      }
+    });
+  });
+}
+
+// Initialize the Quick Filter toggle
+initQuickFilterToggle();
 
   if (fileInput) {
     fileInput.addEventListener("change", function (event) {
@@ -93,6 +342,23 @@ document.addEventListener("DOMContentLoaded", function () {
              downloadBtn.disabled = false;
            }
 
+         
+
+
+              // Fetch keys applied length
+              fetch("http://localhost:5000/keys-applied-length", {
+                method: "GET"
+              })
+              .then(response => response.json())
+              .then(data => {
+                  pendingCount = data.keys_applied_length;
+                  const penE3 = document.getElementById('pendingCount');
+                  
+                  if (penE3) penE3.textContent = String(pendingCount);
+              })
+              .catch(error => {
+                console.error("Error fetching keys applied length:", error);
+              }); 
            // Show success toast with auto-hide after 5 seconds
            const successToast = new bootstrap.Toast(document.getElementById('successToast'), {
              delay: 3000,
@@ -100,19 +366,41 @@ document.addEventListener("DOMContentLoaded", function () {
            });
            successToast.show();
 
-          // Initialize status counters
-          try {
-            fetch("http://localhost:5000/keys-applied-length")
-              .then(r => r.json())
-              .then(d => {
-                if (typeof d.keys_applied_length === "number") {
-                  pendingCount = d.keys_applied_length;
-                  const el = document.getElementById("pendingCount");
-                  if (el) el.textContent = String(pendingCount);
-                }
-              })
-              .catch(() => {});
-          } catch (_) {}
+           // Initialize the first rule for review
+           try {
+             // Get the first rule to review
+             fetch("http://localhost:5000/get-next-change", {
+               method: "POST",
+               headers: {
+                 "Content-Type": "application/json",
+               },
+               body: JSON.stringify({
+                 current_data: complete_before_data || before,
+                 skip_rules: skipRules
+               })
+             })
+             .then(response => response.json())
+             .then(data => {
+               console.log("First rule response:", data);
+               
+               if (data.BEFORE && data.AFTER) {
+                 // Update global variables
+                 before = data.BEFORE;
+                 after = data.AFTER;
+                 currentRule = data.CURRENT_RULE;
+                 
+                 // Display the first rule for review
+                 updateCodeCardContent(before, after);
+               } else {
+                 console.log("No more rules to apply");
+               }
+             })
+             .catch(error => {
+               console.error("Error getting first rule:", error);
+             });
+           } catch (error) {
+            console.error('Error initializing rule discovery:', error);
+          }
 
           // Display the cleaned JSON as cards with diff view
            try {
@@ -355,7 +643,7 @@ document.addEventListener("DOMContentLoaded", function () {
               Review the changes and decide whether to accept or reject them.
             </small>
           </div>
-          <div class="btn-group" role="group">
+          <div class="d-flex gap-2" role="group">
             <button type="button" class="btn btn-outline-danger" onclick="rejectChanges()">
               <i class="bi bi-x-circle me-1"></i>
               Reject
@@ -364,9 +652,13 @@ document.addEventListener("DOMContentLoaded", function () {
               <i class="bi bi-check-circle me-1"></i>
               Accept Changes
             </button>
-               <button type="button" class="btn btn-warning" onclick="downloadCurrentState()">
+            <button type="button" class="btn btn-warning" onclick="downloadCurrentState()">
               <i class="bi bi-download me-1"></i>
               Download Current State
+            </button>
+            <button type="button" class="btn btn-primary" onclick="acceptAllAndDownload()">
+              <i class="bi bi-check-all me-1"></i>
+              Accept All & Download
             </button>
           </div>
         </div>
@@ -404,49 +696,173 @@ document.addEventListener("DOMContentLoaded", function () {
     return card;
   }
 
-  function createChangesResultsCard(data,originalData,keys = []) {
+  function createChangesResultsCard(data, originalData, keys = []) {
     const card = document.createElement("div");
     card.className = "code-card card shadow";
     
-        // Generate diff view with error handling
-        let diffView = "";
-        try {
-          diffView = originalData ? generateDetailedDiffView(originalData, data) : "";
-        } catch (error) {
-          console.error("Error generating diff view:", error);
-          diffView = '<div class="diff-line unchanged">Error generating diff view</div>';
-        }
-    
+    // Generate diff view with error handling
+    let diffView = "";
+    try {
+      diffView = originalData ? generateDetailedDiffView(originalData, data) : "";
+    } catch (error) {
+      console.error("Error generating diff view:", error);
+      diffView = '<div class="diff-line unchanged">Error generating diff view</div>';
+    }
     
     card.innerHTML = `
-      <div class="card-header bg-primary text-white ">
+      <div class="card-header bg-primary text-white">
         <h4 class="mb-0">
           <i class="bi bi-file-diff me-2"></i>
           Changes Applied & Final Results
         </h4>
       </div>
       
-      <div class="card-body p-0">
-        <div class="row g-0 code-container">
-          ${diffView ? `
-          <div class="col-md-6 border-end">
-            <h6 class="text-warning p-2 m-0">Changes Applied:</h6>
-            <div class="diff-container bg-dark text-light p-2 rounded" style="max-height:600px; overflow:auto; font-family: 'Courier New', monospace; font-size: 12px;">
-              ${diffView}
+      <div class="card-body p-3">
+        <!-- History Section -->
+        <div id="changesHistorySection" class="mb-3">
+          <div class="card bg-dark text-light shadow">
+            <div class="card-header bg-secondary">
+              <h5 class="mb-0">
+                <i class="bi bi-clock-history me-2"></i>
+                Rule Validation History
+              </h5>
+            </div>
+            <div class="card-body p-3 text-center text-muted">
+              <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+              <p class="mt-2 mb-0">No decisions made yet. Accept or reject changes in the Rule Validation tab.</p>
             </div>
           </div>
-          ` : ''}
+        </div>
+        
+        <!-- Three-Pane Comparison -->
+        <div class="resizable-container-three">
+          <!-- Original Uploaded JSON Pane -->
+          <div class="resizable-pane-three history">
+            <h6 class="text-secondary p-2 m-0 bg-dark border-bottom">
+              <i class="bi bi-file-earmark-arrow-up me-2"></i>Original Upload
+            </h6>
+            <div id="originalUploadContent" class="diff-container bg-dark text-light p-2" style="height: calc(100% - 40px); overflow: auto; font-family: 'Courier New', monospace; font-size: 12px;">
+              <pre class="m-0"><code>${escapeHTML(JSON.stringify(originalData || {}, null, 2))}</code></pre>
+            </div>
+          </div>
           
-          <div class="${diffView ? 'col-md-6' : 'col-md-12'}">
-            <h6 class="text-info p-2 m-0">Final Result:</h6>
-            <div class="diff-container bg-dark text-light p-2 rounded" style="max-height:600px; overflow:auto; font-family: 'Courier New', monospace; font-size: 12px;">
+          <div class="resizable-divider-three"></div>
+          
+          <!-- Current State Pane -->
+          <div class="resizable-pane-three middle">
+            <h6 class="text-warning p-2 m-0 bg-dark border-bottom">
+              <i class="bi bi-file-code me-2"></i>Current State (Downloadable)
+            </h6>
+            <div id="currentStateContent" class="diff-container bg-dark text-light p-2" style="height: calc(100% - 40px); overflow: auto; font-family: 'Courier New', monospace; font-size: 12px;">
+              <pre class="m-0"><code>${escapeHTML(JSON.stringify(originalData || {}, null, 2))}</code></pre>
+            </div>
+          </div>
+          
+          <div class="resizable-divider-three"></div>
+          
+          <!-- Final Result Pane -->
+          <div class="resizable-pane-three right">
+            <h6 class="text-success p-2 m-0 bg-dark border-bottom">
+              <i class="bi bi-download me-2"></i>Cleaned JSON (Download Button)
+            </h6>
+            <div class="diff-container bg-dark text-light p-2" style="height: calc(100% - 40px); overflow: auto; font-family: 'Courier New', monospace; font-size: 12px;">
               <pre class="m-0"><code>${escapeHTML(JSON.stringify(data, null, 2))}</code></pre>
             </div>
           </div>
         </div>
       </div>
     `;
+    
+    // Initialize three-pane resizable functionality
+    setTimeout(() => initializeThreePaneResizable(card), 0);
+    
+    // Initialize history display
+    setTimeout(() => updateChangesHistoryDisplay(), 0);
+    
     return card;
+  }
+  
+  // Function to make three panes resizable
+  function initializeThreePaneResizable(card) {
+    const dividers = card.querySelectorAll('.resizable-divider-three');
+    const panes = card.querySelectorAll('.resizable-pane-three');
+    const container = card.querySelector('.resizable-container-three');
+    
+    if (dividers.length !== 2 || panes.length !== 3 || !container) {
+      console.error('Three-pane resizable elements not found');
+      return;
+    }
+    
+    const [divider1, divider2] = dividers;
+    const [pane1, pane2, pane3] = panes;
+    
+    let activeDivider = null;
+    
+    // Handle first divider
+    divider1.addEventListener('mousedown', (e) => {
+      activeDivider = 1;
+      document.body.classList.add('resizing');
+      e.preventDefault();
+    });
+    
+    // Handle second divider
+    divider2.addEventListener('mousedown', (e) => {
+      activeDivider = 2;
+      document.body.classList.add('resizing');
+      e.preventDefault();
+    });
+    
+    document.addEventListener('mousemove', (e) => {
+      if (!activeDivider) return;
+      
+      const containerRect = container.getBoundingClientRect();
+      const containerLeft = containerRect.left;
+      const containerWidth = containerRect.width;
+      const dividerWidth = 8; // Width of each divider
+      
+      if (activeDivider === 1) {
+        // Resizing between pane1 and pane2
+        let newPane1Width = e.clientX - containerLeft;
+        const minWidth = containerWidth * 0.15;
+        const pane3Width = pane3.getBoundingClientRect().width;
+        const maxWidth = containerWidth - pane3Width - dividerWidth * 2 - containerWidth * 0.15;
+        
+        if (newPane1Width < minWidth) newPane1Width = minWidth;
+        if (newPane1Width > maxWidth) newPane1Width = maxWidth;
+        
+        const pane1Percent = (newPane1Width / containerWidth) * 100;
+        const pane3Percent = (pane3Width / containerWidth) * 100;
+        const pane2Percent = 100 - pane1Percent - pane3Percent - ((dividerWidth * 2) / containerWidth * 100);
+        
+        pane1.style.flex = `0 0 ${pane1Percent}%`;
+        pane2.style.flex = `0 0 ${pane2Percent}%`;
+        
+      } else if (activeDivider === 2) {
+        // Resizing between pane2 and pane3
+        const divider2Rect = divider2.getBoundingClientRect();
+        let newPane3Width = containerRect.right - e.clientX;
+        const minWidth = containerWidth * 0.15;
+        const pane1Width = pane1.getBoundingClientRect().width;
+        const maxWidth = containerWidth - pane1Width - dividerWidth * 2 - containerWidth * 0.15;
+        
+        if (newPane3Width < minWidth) newPane3Width = minWidth;
+        if (newPane3Width > maxWidth) newPane3Width = maxWidth;
+        
+        const pane1Percent = (pane1Width / containerWidth) * 100;
+        const pane3Percent = (newPane3Width / containerWidth) * 100;
+        const pane2Percent = 100 - pane1Percent - pane3Percent - ((dividerWidth * 2) / containerWidth * 100);
+        
+        pane2.style.flex = `0 0 ${pane2Percent}%`;
+        pane3.style.flex = `0 0 ${pane3Percent}%`;
+      }
+    });
+    
+    document.addEventListener('mouseup', () => {
+      if (activeDivider) {
+        activeDivider = null;
+        document.body.classList.remove('resizing');
+      }
+    });
   }
 
   function generateDetailedDiffView(original, modified) {
@@ -575,6 +991,9 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
     
+    // Show loading
+    showLoading("Rejecting changes and finding next rule...");
+    
     // Call the reject endpoint with before data and list of rejected rules
     fetch("http://localhost:5000/reject-changes", {
       method: "POST",
@@ -615,6 +1034,15 @@ document.addEventListener("DOMContentLoaded", function () {
       if (data.Complete_after_data) complete_after_data = data.Complete_after_data;
       if (data.Complete_before_data) complete_before_data = data.Complete_before_data;
       
+      // Add to change history with complete JSON
+      addToChangeHistory(
+        data.CURRENT_RULE || currentRule,
+        'rejected',
+        data.BEFORE || before,
+        data.AFTER || after,
+        data.Complete_after_data || complete_after_data
+      );
+      
       // Update counters
       rejectedCount += 1;
       if (pendingCount > 0) pendingCount -= 1;
@@ -623,18 +1051,24 @@ document.addEventListener("DOMContentLoaded", function () {
       if (rejEl) rejEl.textContent = String(rejectedCount);
       if (penEl) penEl.textContent = String(pendingCount);
 
+      // Update the current state display in tab 3
+      updateCurrentStateDisplay(complete_before_data || before);
+      
       // Update the UI with new before/after data
       if (data.AFTER) {
         updateCodeCardContent(data.BEFORE || before, data.AFTER);
+        hideLoading();
         alert(`Changes rejected! Trying next available rule.`);
       } else {
         // No more changes - show completion message and clear the diff view
         updateCodeCardContent(null, null);
+        hideLoading();
         alert("All changes processed! No more rules to apply.");
       }
     })
     .catch(error => {
       console.error("Error rejecting changes:", error);
+      hideLoading();
       alert("Error rejecting changes. Please try again.");
     });
   };
@@ -651,6 +1085,9 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
     
+    // Show loading
+    showLoading("Accepting changes and applying rule...");
+    
     // Call the accept endpoint with after data
     fetch("http://localhost:5000/accept-changes", {
       method: "POST",
@@ -661,7 +1098,8 @@ document.addEventListener("DOMContentLoaded", function () {
         current_data: complete_before_data || before,  // Use complete data if available
         after_data: dataToUse,
         complete_after_data: complete_after_data,
-        skip_rules: skipRules
+        skip_rules: skipRules,
+        current_rule: currentRule
       })
     })
     .then(response => {
@@ -690,6 +1128,15 @@ document.addEventListener("DOMContentLoaded", function () {
       if (data.Complete_after_data) complete_after_data = data.Complete_after_data;
       if (data.Complete_before_data) complete_before_data = data.Complete_before_data;
       
+      // Add to change history with complete JSON
+      addToChangeHistory(
+        currentRule,
+        'accepted',
+        data.BEFORE || before,
+        data.AFTER || after,
+        data.Complete_after_data || complete_after_data
+      );
+      
       // Update counters
       approvedCount += 1;
       if (pendingCount > 0) pendingCount -= 1;
@@ -698,23 +1145,29 @@ document.addEventListener("DOMContentLoaded", function () {
       if (appEl) appEl.textContent = String(approvedCount);
       if (penEl) penEl.textContent = String(pendingCount);
 
+      // Update the current state display in tab 3
+      updateCurrentStateDisplay(data.Complete_after_data || complete_after_data);
+      
       // Update the UI with new before/after data from API response
       if (data.AFTER) {
         updateCodeCardContent(data.BEFORE || after, data.AFTER);
+        hideLoading();
         alert("Changes accepted! UI updated with new data.");
       } else {
         // No more changes - show completion message and clear the diff view
         updateCodeCardContent(null, null);
+        hideLoading();
         alert("All changes processed! No more rules to apply.");
       }
     })
     .catch(error => {
       console.error("Error accepting changes:", error);
+      hideLoading();
       alert("Error accepting changes. Please try again.");
     });
   };
 
-    // Download Current State functionality
+  // Download Current State functionality
     window.downloadCurrentState = function() {
       console.log("Download Current State button clicked");
       
@@ -741,4 +1194,118 @@ document.addEventListener("DOMContentLoaded", function () {
       
       alert("Current state downloaded successfully!");
     };
+
+  // Accept all remaining rules and download
+  window.acceptAllAndDownload = async function() {
+    const currentStateData = complete_after_data || complete_before_data || lastCleanedJson;
+    
+    if (!currentStateData) {
+      alert("No JSON data available. Please upload a file first.");
+      return;
+    }
+    
+    const confirmed = confirm(
+      `This will automatically accept all remaining rules and download the final JSON.\n\n` +
+      `Pending rules: ${pendingCount}\n` +
+      `Are you sure you want to proceed?`
+    );
+    
+    if (!confirmed) return;
+    
+    console.log("Accept All & Download - Starting automatic acceptance");
+    
+    // Show loading
+    showLoading("Accepting all remaining rules...");
+    
+    let currentData = currentStateData;
+    let rulesAccepted = 0;
+    
+    try {
+      // Keep accepting changes until no more rules
+      while (true) {
+        // Update loading message with progress
+        showLoading(`Accepting remaining rules... (${rulesAccepted + 1})`);
+        // Call accept-changes endpoint
+        const response = await fetch("http://localhost:5000/accept-changes", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            current_data: complete_before_data || before,
+            after_data: after_full,
+            complete_after_data: complete_after_data,
+            skip_rules: skipRules,
+            current_rule: currentRule
+          })
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Update global state for next iteration
+        if (data.BEFORE) before = data.BEFORE;
+        if (data.AFTER) after = data.AFTER;
+        if (data.CURRENT_RULE) currentRule = data.CURRENT_RULE;
+        if (data.Before_data) before_full = data.Before_data;
+        if (data.After_data) after_full = data.After_data;
+        if (data.Complete_after_data) complete_after_data = data.Complete_after_data;
+        if (data.Complete_before_data) complete_before_data = data.Complete_before_data;
+        if (data.SKIP_RULES) skipRules = data.SKIP_RULES;
+        
+        // Check if there are more changes
+        if (!data.AFTER || !data.MORE_CHANGES) {
+          // No more rules to apply
+          currentData = data.Complete_after_data || complete_after_data || currentData;
+          break;
+        }
+        
+        rulesAccepted++;
+        currentData = data.Complete_after_data || currentData;
+      }
+      
+      console.log(`Accepted ${rulesAccepted} remaining rules`);
+      
+      // Show final loading message
+      showLoading("Preparing download...");
+      
+      // Download the final result
+      const dataStr = JSON.stringify(currentData, null, 2);
+      const dataBlob = new Blob([dataStr], {type: 'application/json'});
+      const url = URL.createObjectURL(dataBlob);
+      
+      const a = document.createElement('a');
+      a.href = url;
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      a.download = originalFilename 
+        ? `cleaned_${originalFilename.replace('.json', '')}_${timestamp}.json`
+        : `fully_cleaned_${timestamp}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      // Update counters only
+      approvedCount += rulesAccepted;
+      pendingCount = 0;
+      
+      const appEl = document.getElementById('approvedCount');
+      const penEl = document.getElementById('pendingCount');
+      if (appEl) appEl.textContent = String(approvedCount);
+      if (penEl) penEl.textContent = String(pendingCount);
+      
+      hideLoading();
+      alert(`Successfully accepted ${rulesAccepted} rules and downloaded the cleaned JSON file!`);
+      
+    } catch (error) {
+      console.error("Error during accept all:", error);
+      hideLoading();
+      alert("Error processing rules. Please try again.");
+    }
+  };
+
 });
+

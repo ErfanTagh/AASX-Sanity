@@ -35,6 +35,19 @@
     </div>
   </div>
 
+  <!-- Loading Overlay -->
+  <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+    <div class="loading-spinner">
+      <div class="spinner-border text-primary" role="status" style="width: 4rem; height: 4rem;">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+      <div class="loading-text mt-3">
+        <h5 class="text-light">Processing...</h5>
+        <p class="text-muted" id="loadingMessage">Applying rule changes</p>
+      </div>
+    </div>
+  </div>
+
   <!-- Main Container -->
   <div class="container-fluid">
     <div class="row">
@@ -77,7 +90,7 @@
         <div class="d-grid gap-3">
           <button class="btn btn-cyan" onclick="reloadAll()">🔄 Reload all</button>
 
-          <div class="text-center text-info fw-bold fs-5">2538 items</div>
+          
             <!-- Hidden file input -->
             <input type="file" id="jsonFileInput" accept=".json" style="display: none;">
 
@@ -87,7 +100,7 @@
             <!-- Download Cleaned JSON Button -->
             <button class="btn btn-success mt-2" id="downloadCleanedBtn" disabled>Download cleaned JSON</button>
 
-          <div class="border-top border-secondary pt-3">
+            <div class="border-top border-secondary pt-3" id="quickFilterSection">
             <label class="form-label text-light">Quick Filter</label>
             <input type="text" class="form-control form-control-sm mb-2" placeholder="ID">
             <input type="text" class="form-control form-control-sm mb-2" placeholder="assetId">

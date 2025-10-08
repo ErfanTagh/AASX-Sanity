@@ -1,7 +1,7 @@
 from platform import java_ver
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
-from RuleBasedScriptToCheckBugsV04_1 import clean_json_iterative, save_cleaned_json, keys, keys_applied_length
+from RuleBasedScriptToCheckBugsV04_1 import clean_json_iterative, save_cleaned_json, keys, keys_applied_length, clean_json_single_rule
 from rule_processor import clean_json_stepwise # Import from new file
 from helpers import  normalize, extract_changed_parts_fast
 import json
@@ -184,13 +184,22 @@ def accept_changes():
         # Use the complete JSON data that was returned from the initial processing
         # This contains the full JSON with the accepted change already applied
         complete_after_data = data.get('complete_after_data')
-        if complete_after_data:
-            # Use the complete JSON with the change applied
-            processing_state['original_data'] = complete_after_data
-            processing_state['skip_rules'] = skip_rules
+        current_rule = data.get('current_rule')
+
+        if complete_after_data and current_rule:
+            # Apply the single rule completely until no more changes occur
+            cleaned_data, changes_made = clean_json_single_rule(complete_after_data, current_rule)
             
+            # Update processing state with thoroughly cleaned data
+            processing_state['original_data'] = cleaned_data
+            
+            # Add the rule to skip list since it's been fully applied
+            if current_rule not in skip_rules:
+                skip_rules.append(current_rule)
+            processing_state['skip_rules'] = skip_rules
+
             # Re-run the entire cleaning process with the updated data
-            result = process_json_data_step_by_step(complete_after_data, skip_rules=skip_rules)
+            result = process_json_data_step_by_step(cleaned_data, skip_rules=skip_rules)
             
             # Add the current skip_rules to the result
             result['SKIP_RULES'] = skip_rules
@@ -253,6 +262,202 @@ def download_current_state():
 def keys_applied_length_api():
     print("DEBUG API: keys_applied_length")
     return jsonify({'keys_applied_length': keys_applied_length()})
+
+@app.route('/discover-rules', methods=['POST'])
+def discover_rules():
+    """FAST: Find which rules can be applied to the uploaded JSON"""
+    try:
+        original_data = processing_state.get('original_data')
+        if not original_data:
+            return jsonify({'error': 'No data uploaded'}), 400
+        
+        print("Starting FAST rule discovery...")
+        
+        # OPTIMIZATION 1: Single traversal with rule tracking
+        applicable_rules = []
+        rule_results = {}  # Cache results for each rule
+        
+        # OPTIMIZATION 2: Use the existing clean_json_iterative but track which rules were applied
+        from RuleBasedScriptToCheckBugsV04_1 import keys_applied
+        original_keys_applied = keys_applied.copy()  # Backup original
+        keys_applied.clear()  # Clear for fresh tracking
+        
+        # Apply all rules and see which ones get triggered
+        test_data = deepcopy(original_data)
+        cleaned = clean_json_iterative(test_data)
+        
+        # Get the rules that were actually applied
+        applied_rules = sorted(set(keys_applied))
+        keys_applied.clear()
+        keys_applied.extend(original_keys_applied)  # Restore original
+        
+        print(f"FAST discovery found {len(applied_rules)} applicable rules: {applied_rules}")
+        
+        # Initialize rule tracking state
+        processing_state['applicable_rules'] = applied_rules
+        processing_state['reviewed_rules'] = []
+        processing_state['accepted_rules'] = []
+        
+        return jsonify({
+            'applicable_rules': applied_rules,
+            'total_applicable': len(applied_rules),
+            'message': f'Found {len(applied_rules)} applicable rules out of 18 total rules'
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Error discovering rules: {str(e)}'}), 500
+
+@app.route('/get-next-rule', methods=['GET'])
+def get_next_rule():
+    """Get the next rule for user review"""
+    try:
+        original_data = processing_state.get('original_data')
+        applicable_rules = processing_state.get('applicable_rules', [])
+        reviewed_rules = processing_state.get('reviewed_rules', [])
+        
+        if not original_data:
+            return jsonify({'error': 'No data uploaded'}), 400
+        
+        # Find next unreviewed rule
+        for rule_num in applicable_rules:
+            if rule_num not in reviewed_rules:
+                # Test this rule on original data
+                skip_rules = [r for r in range(1, 19) if r != rule_num]
+                before_fragment, after_fragment, found_rule, complete_after, complete_before = clean_json_stepwise(
+                    original_data, skip_rules=skip_rules
+                )
+                
+                if found_rule == rule_num:
+                    return jsonify({
+                        'rule_num': rule_num,
+                        'before_fragment': before_fragment,
+                        'after_fragment': after_fragment,
+                        'complete_before': complete_before,
+                        'complete_after': complete_after,
+                        'has_changes': True,
+                        'progress': {
+                            'current': len(reviewed_rules) + 1,
+                            'total': len(applicable_rules)
+                        }
+                    })
+        
+        # No more rules to review
+        return jsonify({
+            'rule_num': None,
+            'has_changes': False,
+            'message': 'All applicable rules have been reviewed',
+            'progress': {
+                'current': len(reviewed_rules),
+                'total': len(applicable_rules)
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Error finding next rule: {str(e)}'}), 500
+
+@app.route('/accept-rule-globally', methods=['POST'])
+def accept_rule_globally():
+    """Accept a rule and apply it globally to the entire JSON"""
+    try:
+        data = request.get_json()
+        rule_num = data.get('rule_num')
+        
+        if not rule_num:
+            return jsonify({'error': 'Rule number required'}), 400
+            
+        # Add to accepted rules
+        if 'accepted_rules' not in processing_state:
+            processing_state['accepted_rules'] = []
+        if rule_num not in processing_state['accepted_rules']:
+            processing_state['accepted_rules'].append(rule_num)
+        
+        # Add to reviewed rules
+        if 'reviewed_rules' not in processing_state:
+            processing_state['reviewed_rules'] = []
+        if rule_num not in processing_state['reviewed_rules']:
+            processing_state['reviewed_rules'].append(rule_num)
+        
+        # Apply ALL accepted rules globally to the original data
+        original_data = processing_state.get('original_data')
+        if not original_data:
+            return jsonify({'error': 'No original data found'}), 400
+            
+        # Create skip list for rules that haven't been accepted yet
+        all_rules = list(range(1, 19))  # Rules 1-18
+        skip_rules = [r for r in all_rules if r not in processing_state['accepted_rules']]
+        
+        # Apply only accepted rules globally
+        globally_cleaned = clean_json_iterative(original_data, skip_rules=skip_rules)
+        
+        # Update the processing state with the globally cleaned data
+        processing_state['current_data'] = globally_cleaned
+        
+        return jsonify({
+            'success': True,
+            'message': f'Rule {rule_num} applied globally',
+            'globally_cleaned': globally_cleaned,
+            'accepted_rules': processing_state['accepted_rules'],
+            'reviewed_rules': processing_state['reviewed_rules'],
+            'applicable_rules': processing_state.get('applicable_rules', [])
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Error applying rule globally: {str(e)}'}), 500
+
+@app.route('/reject-rule', methods=['POST'])
+def reject_rule():
+    """Reject a rule (mark as reviewed but don't apply)"""
+    try:
+        data = request.get_json()
+        rule_num = data.get('rule_num')
+        
+        if not rule_num:
+            return jsonify({'error': 'Rule number required'}), 400
+            
+        # Add to reviewed rules (but not accepted)
+        if 'reviewed_rules' not in processing_state:
+            processing_state['reviewed_rules'] = []
+        if rule_num not in processing_state['reviewed_rules']:
+            processing_state['reviewed_rules'].append(rule_num)
+        
+        return jsonify({
+            'success': True,
+            'message': f'Rule {rule_num} rejected',
+            'accepted_rules': processing_state.get('accepted_rules', []),
+            'reviewed_rules': processing_state['reviewed_rules'],
+            'applicable_rules': processing_state.get('applicable_rules', [])
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Error rejecting rule: {str(e)}'}), 500
+
+@app.route('/apply-single-rule', methods=['POST'])
+def apply_single_rule():
+    """Apply a single specific rule repeatedly until no more changes occur"""
+    try:
+        data = request.get_json()
+        if not data or 'json_data' not in data or 'rule_number' not in data:
+            return jsonify({'error': 'JSON data and rule number are required'}), 400
+        
+        json_data = data['json_data']
+        rule_number = data['rule_number']
+        
+        if not isinstance(rule_number, int) or rule_number < 1 or rule_number > 18:
+            return jsonify({'error': 'Rule number must be between 1 and 18'}), 400
+        
+        # Apply the single rule
+        cleaned_data, changes_made = clean_json_single_rule(json_data, rule_number)
+        
+        return jsonify({
+            'success': True,
+            'cleaned_data': cleaned_data,
+            'rule_number': rule_number,
+            'changes_made': changes_made,
+            'message': f'Rule {rule_number} applied {changes_made} times'
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Error applying rule: {str(e)}'}), 500
 
 
 if __name__ == '__main__':

@@ -437,8 +437,9 @@ def keys():
     return [{"id": k, "desc": RULES_MAP.get(k, "Unknown rule")} for k in unique_keys]
 
 def keys_applied_length():
+    unique_keys = sorted(set(keys_applied))
     print("DEBUG keys_applied_length: ", len(keys_applied))
-    return len(keys_applied)
+    return len(unique_keys)
 def save_cleaned_json(cleaned_data, filename=None):
     """
     Save cleaned JSON data to a file with timestamp.
@@ -452,6 +453,120 @@ def save_cleaned_json(cleaned_data, filename=None):
         json.dump(cleaned_data, f, indent=2, ensure_ascii=False)
     
     return filename
+
+
+def clean_json_single_rule(obj, rule_number, keys_to_clean=(
+    "qualifiers", "embeddedDataSpecifications", "displayName",
+    "statements", "description", "extensions",
+    "supplementalSemanticIds", "shortName"
+)):
+    """
+    Apply a single specific rule repeatedly until no more changes occur.
+    
+    Args:
+        obj: The JSON object to clean
+        rule_number: The rule number to apply (1-18)
+        keys_to_clean: Keys to clean for rule 1
+    
+    Returns:
+        tuple: (cleaned_object, total_changes_made)
+    """
+    import copy
+    
+    # Create a deep copy to avoid modifying the original object
+    obj = copy.deepcopy(obj)
+    
+    # Get the specific rule function
+    rules = [
+        (1,  lambda node: apply_rule_1_remove_empty_lists(node, keys_to_clean)),
+        (2,  apply_rule_2_remove_empty_semantic_id),
+        (3,  apply_rule_3_remove_empty_value_id),
+        (4,  apply_rule_4_remove_empty_id_short),
+        (5,  apply_rule_5_file_defaults),
+        (6,  apply_rule_6_annotated_relationship_default_keys),
+        (7,  apply_rule_7_remove_empty_submodel_collection_value),
+        (8,  apply_rule_8_change_entity_type),
+        (9,  apply_rule_9_multilanguage_property_defaults),
+        (10, apply_rule_10_fix_concept_description),
+        (11, apply_rule_11_remove_empty_reference_element_value),
+        (12, apply_rule_12_remove_id_short_in_submodel_collection),
+        (13, apply_rule_13_property_empty_value_default),
+        (14, apply_rule_14_fix_language_en_question),
+        (15, apply_rule_15_convert_boolean_strings),
+        (16, apply_rule_16_multilanguage_property_empty_array),
+        (17, apply_rule_17_add_data_specification_definition),
+        (18, apply_rule_18_remove_bulk_count_items),
+    ]
+    
+    # Find the specific rule
+    rule_func = None
+    for rule_num, func in rules:
+        if rule_num == rule_number:
+            rule_func = func
+            break
+    
+    if rule_func is None:
+        raise ValueError(f"Rule {rule_number} not found. Available rules: 1-18")
+    
+    total_changes = 0
+    max_iterations = 1000  # Safety limit to prevent infinite loops
+    
+    # Keep applying the rule until no more changes occur
+    for iteration in range(max_iterations):
+        changes_in_iteration = 0
+        
+        # Stack holds tuples of (parent, key_or_index, node)
+        stack = [(None, None, obj)]
+        
+        # Root may be replaced by rules, so keep reference updated
+        root = obj
+        
+        while stack:
+            parent, key, current = stack.pop()
+            
+            # Apply the specific rule until the current node stabilizes
+            changed_any = True
+            while changed_any:
+                changed_any = False
+                
+                # Apply the specific rule
+                modified, changed = rule_func(current)
+                if changed:
+                    # Write back into parent or root
+                    if parent is None:
+                        root = modified
+                        current = modified
+                    else:
+                        if isinstance(parent, dict):
+                            parent[key] = modified
+                        else:
+                            parent[key] = modified
+                        current = modified
+                    changed_any = True
+                    changes_in_iteration += 1
+                    total_changes += 1
+            
+            # Push children to stack after node is stabilized
+            if isinstance(current, dict):
+                for child_key, child_val in current.items():
+                    if isinstance(child_val, (dict, list)):
+                        stack.append((current, child_key, child_val))
+            elif isinstance(current, list):
+                for idx, child_val in enumerate(current):
+                    if isinstance(child_val, (dict, list)):
+                        stack.append((current, idx, child_val))
+        
+        # Update root reference
+        obj = root
+        
+        # If no changes were made in this iteration, we're done
+        if changes_in_iteration == 0:
+            break
+    
+    if iteration == max_iterations - 1:
+        print(f"Warning: Reached maximum iterations ({max_iterations}) for rule {rule_number}")
+    
+    return obj, total_changes
 
 
 # # Only run the file operations if this script is run directly (not imported)
