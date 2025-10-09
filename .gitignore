@@ -1,0 +1,120 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv
+Backend/venv/
+Scripts/
+Lib/
+Include/
+pyvenv.cfg
+
+# Flask
+instance/
+.webassets-cache
+*.db
+*.sqlite
+*.sqlite3
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+*.out
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Node modules (if any)
+node_modules/
+package-lock.json
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/
+
+# Generated files
+*.json.backup
+*_cleaned_output.json
+current_state_*.json
+cleaned_*.json
+*_cleaned_*.json
+state_*.json
+accepted_*.json
+rejected_*.json
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Docker (optional - uncomment if you don't want to track these)
+# docker-compose.override.yml
+
+# Test files (if any)
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+*.cover
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Distribution / packaging
+*.whl
+wheels/
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre
+.pyre/
+
+# pytype
+.pytype/
+
+# Cython debug symbols
+cython_debug/
+
+# Large sample files (optional)
+# *.json
+# T4TTruckFrame_*.json
+
+# Bootstrap distribution (optional - uncomment if you want to exclude)
+# bootstrap-5.0.2-dist/
+
+# Project-specific
+sh -T git@ifs.dfki.de
+aas-sanity/
+

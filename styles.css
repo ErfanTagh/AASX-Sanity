@@ -168,6 +168,51 @@ body {
     padding: 0.4em 0.65em;
   }
 
+  /* Download Button Container */
+  .download-btn-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+    padding: 1.5rem 0;
+  }
+
+  .download-cleaned-btn {
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+    border: none;
+    padding: 0.875rem 2.5rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3);
+    transition: all 0.3s ease;
+    border-radius: 0.5rem;
+    text-transform: uppercase;
+  }
+
+  .download-cleaned-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+    box-shadow: 0 6px 20px rgba(34, 197, 94, 0.5);
+    transform: translateY(-2px);
+  }
+
+  .download-cleaned-btn:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 2px 10px rgba(34, 197, 94, 0.4);
+  }
+
+  .download-cleaned-btn:disabled {
+    background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+    box-shadow: none;
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  .download-cleaned-btn i {
+    font-size: 1.2rem;
+  }
+
 /* Code Diff Viewer Styles */
 .code-card {
   background-color: #1e293b;

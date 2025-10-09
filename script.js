@@ -259,32 +259,72 @@ document.addEventListener("DOMContentLoaded", function () {
     URL.revokeObjectURL(url);
   };
 
-  // Quick Filter toggle functionality
-function initQuickFilterToggle() {
-  const quickFilterSection = document.getElementById('quickFilterSection');
-  
-  // Initially hide the Quick Filter
-  if (quickFilterSection) {
-    quickFilterSection.style.display = 'none';
+  // Function to show upload progress modal
+  function showUploadProgress() {
+    const modal = document.createElement('div');
+    modal.id = 'uploadProgressModal';
+    modal.className = 'modal fade show';
+    modal.style.display = 'block';
+    modal.style.backgroundColor = 'rgba(0,0,0,0.5)';
+    modal.innerHTML = `
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-dark text-light">
+          <div class="modal-header border-secondary">
+            <h5 class="modal-title">
+              <i class="bi bi-gear-fill me-2" style="animation: spin 2s linear infinite;"></i>
+              Analyzing JSON File
+            </h5>
+          </div>
+          <div class="modal-body text-center p-4">
+            <div class="progress-circle mb-3" style="position: relative; width: 150px; height: 150px; margin: 0 auto;">
+              <svg width="150" height="150">
+                <circle cx="75" cy="75" r="65" fill="none" stroke="#334155" stroke-width="10"></circle>
+                <circle id="progressCircle" cx="75" cy="75" r="65" fill="none" stroke="#0ea5e9" stroke-width="10"
+                  stroke-dasharray="408.41" stroke-dashoffset="408.41" transform="rotate(-90 75 75)"
+                  style="transition: stroke-dashoffset 0.3s ease"></circle>
+              </svg>
+              <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 24px; font-weight: bold;">
+                <span id="progressPercent">0%</span>
+              </div>
+            </div>
+            <h6 id="progressMessage" class="text-info mt-3">Starting analysis...</h6>
+            <p id="progressDetails" class="text-muted small">Precomputing changes in background...</p>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    
+    // Add spinner animation
+    const style = document.createElement('style');
+    style.textContent = '@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }';
+    document.head.appendChild(style);
+    
+    return modal;
   }
-  
-  // Listen to Bootstrap tab events
-  const tabButtons = document.querySelectorAll('button[data-bs-toggle="tab"]');
-  tabButtons.forEach(button => {
-    button.addEventListener('shown.bs.tab', function(event) {
-      const targetTab = event.target.getAttribute('data-bs-target');
-      
-      // Show Quick Filter only on Changes & Results tab
-      if (quickFilterSection) {
-        quickFilterSection.style.display = 
-          targetTab === '#changes-results' ? 'block' : 'none';
-      }
-    });
-  });
-}
 
-// Initialize the Quick Filter toggle
-initQuickFilterToggle();
+  function updateUploadProgress(current, total, message) {
+    const percent = total > 0 ? Math.round((current / total) * 100) : 0;
+    const circumference = 408.41; // 2 * π * 65
+    const offset = circumference - (percent / 100) * circumference;
+    
+    const circle = document.getElementById('progressCircle');
+    const percentText = document.getElementById('progressPercent');
+    const messageText = document.getElementById('progressMessage');
+    const detailsText = document.getElementById('progressDetails');
+    
+    if (circle) circle.style.strokeDashoffset = offset;
+    if (percentText) percentText.textContent = `${percent}%`;
+    if (messageText) messageText.textContent = message || 'Processing...';
+    if (detailsText) detailsText.textContent = `Rule ${current} / ${total}`;
+  }
+
+  function closeUploadProgress() {
+    const modal = document.getElementById('uploadProgressModal');
+    if (modal) {
+      modal.remove();
+    }
+  }
 
   if (fileInput) {
     fileInput.addEventListener("change", function (event) {
@@ -309,12 +349,38 @@ initQuickFilterToggle();
       const formData = new FormData();
       formData.append("file", file);
 
+      // Show progress modal
+      showUploadProgress();
+      
+      // Start polling for background precomputation progress
+      const progressInterval = setInterval(() => {
+        fetch("http://localhost:5000/upload-progress")
+          .then(res => res.json())
+          .then(progress => {
+            updateUploadProgress(
+              progress.current_rule,
+              progress.total_rules,
+              progress.message
+            );
+            
+            // Stop polling when complete
+            if (progress.status === 'complete') {
+              clearInterval(progressInterval);
+              setTimeout(() => closeUploadProgress(), 500); // Close after brief delay
+            }
+          })
+          .catch(err => console.error("Progress poll error:", err));
+      }, 300); // Poll every 300ms
+
       fetch("http://localhost:5000/upload", {
         method: "POST",
         body: formData,
       })
         .then((response) => {
-          if (!response.ok) throw new Error("Upload failed");
+          if (!response.ok) {
+            clearInterval(progressInterval);
+            throw new Error("Upload failed");
+          }
           return response.json();
         })
                  .then((jsonData) => {
@@ -338,10 +404,6 @@ initQuickFilterToggle();
             complete_before_data = jsonData["Complete_before_data"];
             currentRule = jsonData["CURRENT_RULE"];
             skipRules = jsonData["SKIP_RULES"] || [];
-           if (downloadBtn) {
-             downloadBtn.disabled = false;
-           }
-
          
 
 
@@ -418,6 +480,17 @@ initQuickFilterToggle();
                   shellWrapper.appendChild(errorCard);
                 }
               });
+              
+              // Add Download button at the bottom of Shells tab
+              const downloadBtnWrapper = document.createElement("div");
+              downloadBtnWrapper.className = "download-btn-container";
+              downloadBtnWrapper.innerHTML = `
+                <button class="btn btn-success btn-lg download-cleaned-btn" id="downloadCleanedBtn" onclick="downloadCleanedJSON()">
+                  <i class="bi bi-download me-2"></i>Download Cleaned JSON
+                </button>
+              `;
+              shellWrapper.appendChild(downloadBtnWrapper);
+              
               // Create a single code review card in the validation tab
               const codeCard = createCodeCard(before, after, before_full, after_full);
               shellInteractive.innerHTML = "";
@@ -431,6 +504,17 @@ initQuickFilterToggle();
             } else if (typeof jsonData["JSON"] === "object") {
               const card = createShellCard(jsonData["JSON"], originalJson, keys);
               shellWrapper.appendChild(card);
+              
+              // Add Download button at the bottom of Shells tab
+              const downloadBtnWrapper = document.createElement("div");
+              downloadBtnWrapper.className = "download-btn-container";
+              downloadBtnWrapper.innerHTML = `
+                <button class="btn btn-success btn-lg download-cleaned-btn" id="downloadCleanedBtn" onclick="downloadCleanedJSON()">
+                  <i class="bi bi-download me-2"></i>Download Cleaned JSON
+                </button>
+              `;
+              shellWrapper.appendChild(downloadBtnWrapper);
+              
               // Create a single code review card in the validation tab
               const codeCard = createCodeCard(before, after, before_full, after_full);
               shellInteractive.innerHTML = "";
@@ -451,47 +535,48 @@ initQuickFilterToggle();
         })
         .catch((err) => {
           console.error(err);
+          closeUploadProgress(); // Close progress modal on error
           alert("Error uploading or processing file.");
         });
     });
   }
 
-  if (downloadBtn) {
-    downloadBtn.addEventListener("click", function () {
-      console.log("Download button clicked");
-      console.log("lastCleanedJson:", lastCleanedJson);
-      console.log("originalFilename:", originalFilename);
-      
-      if (!lastCleanedJson) {
-        console.log("No cleaned JSON data available");
-        return;
-      }
-      const blob = new Blob([
-        JSON.stringify(lastCleanedJson, null, 2)
-      ], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      
-      // Create download filename based on original filename
-      let downloadFilename = "cleaned_output.json";
-      if (originalFilename) {
-        // Remove .json extension if it exists and add _cleaned.json
-        const nameWithoutExt = originalFilename.replace(/\.json$/i, '');
-        downloadFilename = `${nameWithoutExt}_cleaned.json`;
-      }
-      a.download = downloadFilename;
-      console.log("Download filename:", downloadFilename);
-      document.body.appendChild(a);
-      console.log("Download link created and clicked");
-      a.click();
-      setTimeout(() => {
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        console.log("Download cleanup completed");
-      }, 0);
-    });
-  }
+  // Global download function for cleaned JSON
+  window.downloadCleanedJSON = function() {
+    console.log("Download button clicked");
+    console.log("lastCleanedJson:", lastCleanedJson);
+    console.log("originalFilename:", originalFilename);
+    
+    if (!lastCleanedJson) {
+      console.log("No cleaned JSON data available");
+      alert("No cleaned JSON data available to download.");
+      return;
+    }
+    const blob = new Blob([
+      JSON.stringify(lastCleanedJson, null, 2)
+    ], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    
+    // Create download filename based on original filename
+    let downloadFilename = "cleaned_output.json";
+    if (originalFilename) {
+      // Remove .json extension if it exists and add _cleaned.json
+      const nameWithoutExt = originalFilename.replace(/\.json$/i, '');
+      downloadFilename = `${nameWithoutExt}_cleaned.json`;
+    }
+    a.download = downloadFilename;
+    console.log("Download filename:", downloadFilename);
+    document.body.appendChild(a);
+    console.log("Download link created and clicked");
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      console.log("Download cleanup completed");
+    }, 0);
+  };
 
   function createShellCard(data, originalData,keys = []) {
     const card = document.createElement("div");
@@ -542,14 +627,13 @@ initQuickFilterToggle();
        <div class="rules-wrapper">
       <table class="rules-table">
         <thead>
-          Rules Applied: 
+          Founded Errors & Applied Rules:
         </thead>
         <tbody>
           ${tableRows}
         </tbody>
       </table>
     </div>
-      
 
     `;
 
@@ -1195,85 +1279,61 @@ initQuickFilterToggle();
       alert("Current state downloaded successfully!");
     };
 
-  // Accept all remaining rules and download
+  // Accept all remaining rules and download - FAST VERSION
   window.acceptAllAndDownload = async function() {
-    const currentStateData = complete_after_data || complete_before_data || lastCleanedJson;
-    
-    if (!currentStateData) {
-      alert("No JSON data available. Please upload a file first.");
+    if (!originalJson) {
+      alert("No original JSON data available. Please upload a file first.");
       return;
     }
     
     const confirmed = confirm(
       `This will automatically accept all remaining rules and download the final JSON.\n\n` +
       `Pending rules: ${pendingCount}\n` +
+      `Rejected rules will be skipped.\n\n` +
       `Are you sure you want to proceed?`
     );
     
     if (!confirmed) return;
     
-    console.log("Accept All & Download - Starting automatic acceptance");
+    console.log("Accept All & Download - Fast version using clean_json_iterative");
     
     // Show loading
-    showLoading("Accepting all remaining rules...");
-    
-    let currentData = currentStateData;
-    let rulesAccepted = 0;
+    showLoading("Processing all rules with your decisions...");
     
     try {
-      // Keep accepting changes until no more rules
-      while (true) {
-        // Update loading message with progress
-        showLoading(`Accepting remaining rules... (${rulesAccepted + 1})`);
-        // Call accept-changes endpoint
-        const response = await fetch("http://localhost:5000/accept-changes", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            current_data: complete_before_data || before,
-            after_data: after_full,
-            complete_after_data: complete_after_data,
-            skip_rules: skipRules,
-            current_rule: currentRule
-          })
-        });
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        // Update global state for next iteration
-        if (data.BEFORE) before = data.BEFORE;
-        if (data.AFTER) after = data.AFTER;
-        if (data.CURRENT_RULE) currentRule = data.CURRENT_RULE;
-        if (data.Before_data) before_full = data.Before_data;
-        if (data.After_data) after_full = data.After_data;
-        if (data.Complete_after_data) complete_after_data = data.Complete_after_data;
-        if (data.Complete_before_data) complete_before_data = data.Complete_before_data;
-        if (data.SKIP_RULES) skipRules = data.SKIP_RULES;
-        
-        // Check if there are more changes
-        if (!data.AFTER || !data.MORE_CHANGES) {
-          // No more rules to apply
-          currentData = data.Complete_after_data || complete_after_data || currentData;
-          break;
-        }
-        
-        rulesAccepted++;
-        currentData = data.Complete_after_data || currentData;
+      // Call backend to apply all rules except rejected ones
+      // We send the original JSON and the list of rejected rules
+      const response = await fetch("http://localhost:5000/upload", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          json_data: originalJson,
+          skip_rules: skipRules // Pass the rejected rules to skip
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      console.log(`Accepted ${rulesAccepted} remaining rules`);
+      const data = await response.json();
+      
+      // Get the fully cleaned JSON
+      const finalCleanedJson = data.JSON || data.cleaned_data;
+      
+      if (!finalCleanedJson) {
+        throw new Error("No cleaned data received from server");
+      }
+      
+      console.log("Fast processing complete");
       
       // Show final loading message
       showLoading("Preparing download...");
       
       // Download the final result
-      const dataStr = JSON.stringify(currentData, null, 2);
+      const dataStr = JSON.stringify(finalCleanedJson, null, 2);
       const dataBlob = new Blob([dataStr], {type: 'application/json'});
       const url = URL.createObjectURL(dataBlob);
       
@@ -1288,8 +1348,9 @@ initQuickFilterToggle();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       
-      // Update counters only
-      approvedCount += rulesAccepted;
+      // Update counters - all pending become approved
+      const remainingPending = pendingCount;
+      approvedCount += remainingPending;
       pendingCount = 0;
       
       const appEl = document.getElementById('approvedCount');
@@ -1298,7 +1359,7 @@ initQuickFilterToggle();
       if (penEl) penEl.textContent = String(pendingCount);
       
       hideLoading();
-      alert(`Successfully accepted ${rulesAccepted} rules and downloaded the cleaned JSON file!`);
+      alert(`Successfully processed and downloaded the cleaned JSON file!`);
       
     } catch (error) {
       console.error("Error during accept all:", error);

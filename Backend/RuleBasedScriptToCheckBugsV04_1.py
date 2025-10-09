@@ -278,17 +278,25 @@ def clean_json_iterative(obj, keys_to_clean=(
     "qualifiers", "embeddedDataSpecifications", "displayName",
     "statements", "description", "extensions",
     "supplementalSemanticIds", "shortName"
-)):
+), skip_rules=None):
     """Iterative cleaner that applies isolated rule functions without recursion.
 
     Traverses the object graph using an explicit stack and applies all
     rule functions to each visited node until no further changes occur
     for that node. This avoids duplicating rule logic and keeps behavior
     consistent with the modular rule functions.
+    
+    Args:
+        obj: The JSON object to clean
+        keys_to_clean: Keys to remove if they are empty lists
+        skip_rules: List of rule numbers to skip (e.g., [2, 5, 10])
     """
     import copy
     # Create a deep copy to avoid modifying the original object
     obj = copy.deepcopy(obj)
+    
+    if skip_rules is None:
+        skip_rules = []
 
     # Ordered rules as used by clean_json (apply all that match)
     rules = [
@@ -311,6 +319,9 @@ def clean_json_iterative(obj, keys_to_clean=(
         (17, apply_rule_17_add_data_specification_definition),
         (18, apply_rule_18_remove_bulk_count_items),
     ]
+    
+    # Filter out skipped rules
+    rules = [(num, fn) for num, fn in rules if num not in skip_rules]
 
     # Stack holds tuples of (parent, key_or_index, node)
     stack = [(None, None, obj)]

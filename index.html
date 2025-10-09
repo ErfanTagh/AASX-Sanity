@@ -13,13 +13,6 @@
   <!-- Navbar -->
   <nav class="navbar navbar-dark bg-dark px-4">
     <span class="navbar-brand text-info">AAS Sanity</span>
-    <div class="d-flex gap-3 text-warning small">
-      <span>Home</span>
-      <span>Shells</span>
-      <span>JView</span>
-      <span class="text-danger">LIVE</span>
-      <span>Impressum</span>
-    </div>
   </nav>
 
   <!-- Toast Container -->
@@ -55,7 +48,7 @@
     <ul class="nav nav-tabs px-4 pt-3" id="mainTabs" role="tablist">
       <li class="nav-item" role="presentation">
         <button class="nav-link active" id="shells-tab" data-bs-toggle="tab" data-bs-target="#shells" type="button" role="tab" aria-controls="shells" aria-selected="true">
-          <i class="bi bi-collection me-2"></i>Shells
+          <i class="bi bi-collection me-2"></i>Error handling at once
         </button>
       </li>
       <li class="nav-item" role="presentation">
@@ -88,7 +81,7 @@
       <!-- Sidebar -->
       <div class="col-md-3 p-4 sidebar">
         <div class="d-grid gap-3">
-          <button class="btn btn-cyan" onclick="reloadAll()">🔄 Reload all</button>
+          <button class="btn btn-cyan" onclick="reloadAll()">🔄 Clear the dashboard</button>
 
           
             <!-- Hidden file input -->
@@ -96,24 +89,6 @@
 
             <!-- Load More Button triggers file input -->
             <button class="btn btn-primary" onclick="document.getElementById('jsonFileInput').click()">Load more...</button>
-
-            <!-- Download Cleaned JSON Button -->
-            <button class="btn btn-success mt-2" id="downloadCleanedBtn" disabled>Download cleaned JSON</button>
-
-            <div class="border-top border-secondary pt-3" id="quickFilterSection">
-            <label class="form-label text-light">Quick Filter</label>
-            <input type="text" class="form-control form-control-sm mb-2" placeholder="ID">
-            <input type="text" class="form-control form-control-sm mb-2" placeholder="assetId">
-            <input type="text" class="form-control form-control-sm mb-2" placeholder="idShort">
-            <input type="text" class="form-control form-control-sm mb-2" placeholder="displayName">
-
-            <div class="text-light small text-center mt-2">2538 / 2538</div>
-            
-            <div class="text-center">
-                <button class="btn btn-primary btn-md mt-3 px-4">Clear Quick Filter</button>
-            </div>
-
-          </div>
         </div>
       </div>
 
