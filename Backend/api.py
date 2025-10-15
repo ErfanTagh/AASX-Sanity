@@ -7,6 +7,7 @@ import json
 import os
 from copy import deepcopy
 from threading import Thread
+from concurrent.futures import ThreadPoolExecutor
 
 # Using pure Python helpers (C++ acceleration disabled)
 
@@ -15,64 +16,94 @@ CORS(app)
 
 # Global state to track processing
 processing_state = {
-    'all_changes': [],  # Precomputed list of all rule changes
-    'current_index': 0,  # Current position in the changes list
-    'upload_progress': {
-        'status': 'idle',  # 'idle', 'precomputing', 'complete'
-        'current_rule': 0,
-        'total_rules': 18,  # Total rules to check (1-18)
-        'message': ''
-    }
+    'all_changes': []  # Precomputed list (filled by background thread)
 }
+
+def clean_json_parallel(data, skip_rules=None):
+    """
+    Process JSON in parallel for faster cleaning.
+    Splits top-level arrays and processes them concurrently.
+    """
+    if skip_rules is None:
+        skip_rules = []
+    
+    # Check if data has parallelizable structure
+    if not isinstance(data, dict):
+        # Not a dict, just use normal iterative
+        return clean_json_iterative(data, skip_rules=skip_rules)
+    
+    # Identify arrays that can be processed in parallel
+    parallel_keys = []
+    for key in ['assetAdministrationShells', 'submodels', 'conceptDescriptions']:
+        if key in data and isinstance(data[key], list) and len(data[key]) > 0:
+            parallel_keys.append(key)
+    
+    # If no parallelizable arrays, use normal processing
+    if not parallel_keys:
+        return clean_json_iterative(data, skip_rules=skip_rules)
+    
+    try:
+        def clean_array(key_value_pair):
+            key, value = key_value_pair
+            # clean_json_iterative already does deepcopy internally, no need to copy here
+            cleaned = clean_json_iterative(value, skip_rules=skip_rules)
+            return key, cleaned
+        
+        # Process arrays in parallel
+        with ThreadPoolExecutor(max_workers=min(len(parallel_keys), 4)) as executor:
+            # Submit all parallel tasks
+            key_value_pairs = [(key, data[key]) for key in parallel_keys]
+            results = executor.map(clean_array, key_value_pairs)
+        
+        # Build result dict
+        result = {}
+        for key, cleaned_value in results:
+            result[key] = cleaned_value
+        
+        # Add any remaining non-parallelized fields
+        for key, value in data.items():
+            if key not in parallel_keys:
+                if isinstance(value, (dict, list)):
+                    result[key] = clean_json_iterative(value, skip_rules=skip_rules)
+                else:
+                    result[key] = value
+        
+        return result
+        
+    except Exception as e:
+        # Silently fall back to sequential processing
+        return clean_json_iterative(data, skip_rules=skip_rules)
 
 def precompute_all_changes(original_data):
     """
-    Precompute all rule changes upfront for faster accept/reject.
-    Returns a list of all changes with their metadata.
-    Updates progress state for frontend tracking.
+    Precompute all rule changes in background (optimistic - assumes accepts).
+    Runs silently without UI feedback.
     """
     all_changes = []
     current_data = original_data
     skip_rules = []
     
-    # Update progress state
-    processing_state['upload_progress']['status'] = 'precomputing'
-    processing_state['upload_progress']['current_rule'] = 0
-    processing_state['upload_progress']['total_rules'] = 18  # Set total upfront
-    processing_state['upload_progress']['message'] = 'Starting analysis...'
-    
-    print("Starting precomputation of all changes...")
-    max_iterations = 100  # Safety limit
+    max_iterations = 100
     iteration = 0
-    rules_checked = 0
     
     while iteration < max_iterations:
         iteration += 1
         
-        # Update progress based on rules checked (will be updated below)
-        processing_state['upload_progress']['current_rule'] = rules_checked
-        processing_state['upload_progress']['message'] = f'Checking rules...'
-        
         # Find the next change
         before_fragment, after_fragment, found_rule, complete_after, complete_before = clean_json_stepwise(
             current_data, 
-            skip_rules=skip_rules
+            skip_rules=skip_rules,
+            snapshot=False  # Skip expensive deep copies in background - we don't display these directly
         )
         
         # If no more changes, we're done
         if found_rule is None or before_fragment is None:
-            print(f"No more changes found after {len(all_changes)} rules")
-            rules_checked = 18  # Mark all rules as checked
-            processing_state['upload_progress']['current_rule'] = rules_checked
-            processing_state['upload_progress']['message'] = f'Found {len(all_changes)} changes'
             break
         
-        # Increment rules checked
-        rules_checked += 1
-        
-        print(f"Found change for rule {found_rule}")
-        processing_state['upload_progress']['current_rule'] = rules_checked
-        processing_state['upload_progress']['message'] = f'Found change in rule {found_rule}'
+        # Fragments are always snapshotted, but complete_before might be None (when snapshot=False)
+        # If complete_before is None, snapshot current_data as the before state
+        if complete_before is None:
+            complete_before = json.loads(json.dumps(current_data))
         
         # Extract the diff for display
         changed_parts = extract_changed_parts_fast(before_fragment, normalize(after_fragment))
@@ -91,13 +122,6 @@ def precompute_all_changes(original_data):
         # Update current_data to include this change and skip this rule
         current_data = complete_after
         skip_rules.append(found_rule)
-    
-    print(f"Precomputed {len(all_changes)} total changes")
-    
-    # Mark as complete
-    processing_state['upload_progress']['status'] = 'complete'
-    processing_state['upload_progress']['current_rule'] = 18  # All 18 rules checked
-    processing_state['upload_progress']['message'] = f'Complete! Found {len(all_changes)} changes'
     
     return all_changes
 
@@ -171,7 +195,8 @@ def upload_json():
             return jsonify({'error': f'Invalid JSON: {str(e)}'}), 400
     
     try:
-        cleaned = clean_json_iterative(data, skip_rules=skip_rules)
+        # Use parallel processing for faster cleaning
+        cleaned = clean_json_parallel(data, skip_rules=skip_rules)
         
         # Get FIRST change immediately (fast!)
         before_fragment, after_fragment, current_rule, complete_after_json, complete_before_json = clean_json_stepwise(data, skip_rules=[])
@@ -181,23 +206,21 @@ def upload_json():
         else:
             changed_parts = {"tree": {"before": None, "after": None}}
         
-        # Store initial state
+        # Store the original data for step-by-step processing
         processing_state['original_data'] = data
         processing_state['skip_rules'] = []
-        processing_state['current_index'] = 0
-        processing_state['all_changes'] = []  # Will be filled by background thread
-        processing_state['upload_progress']['status'] = 'precomputing'
+        processing_state['all_changes'] = []  # Will be filled by background
         
-        # OPTIMIZATION: Start background thread to precompute remaining changes
+        # Start background thread to precompute remaining changes (silent)
         def background_precompute():
-            print("🚀 Starting background precomputation...")
-            all_changes = precompute_all_changes(data)
-            processing_state['all_changes'] = all_changes
-            print(f"✅ Background precomputation complete: {len(all_changes)} changes")
+            try:
+                all_changes = precompute_all_changes(data)
+                processing_state['all_changes'] = all_changes
+            except Exception as e:
+                pass  # Silently handle errors
         
         thread = Thread(target=background_precompute, daemon=True)
         thread.start()
-        print("📤 Returning first rule immediately, precomputing rest in background...")
         
         # Optionally save the cleaned file
         save_file = request.form.get('save_file', 'false').lower() == 'true'
@@ -214,7 +237,7 @@ def upload_json():
             except Exception as e:
                 # Continue without saving, just return the cleaned data
                 pass
-
+        
         return jsonify({
             "JSON": cleaned, 
             "KEYS": keys(), 
@@ -250,49 +273,33 @@ def get_next_change():
 
 @app.route('/reject-changes', methods=['POST'])
 def reject_changes():
-    """Endpoint to reject changes - uses precomputed list (always ready)"""
+    """Endpoint to reject changes - invalidates precomputed list and uses old method"""
     try:
         data = request.get_json()
+        if not data or 'current_data' not in data:
+            return jsonify({'error': 'Current data is required'}), 400
+        
+        current_data = data['current_data']
         skip_rules = data.get('skip_rules', [])
         current_rule = data.get('current_rule')
         
-        # Add current rule to skip list
+        # Add the current rule to skip list
         if current_rule and current_rule not in skip_rules:
             skip_rules.append(current_rule)
         
-        # Use precomputed changes (background thread already finished by now)
-        all_changes = processing_state.get('all_changes', [])
-        processing_state['current_index'] += 1
-        current_index = processing_state.get('current_index', 0)
+        # REJECT invalidates precomputed list (it assumed all accepts)
+        processing_state['all_changes'] = []  # Clear the list
         
-        # Find next non-rejected change
-        while current_index < len(all_changes):
-            next_change = all_changes[current_index]
-            if next_change['rule_number'] not in skip_rules:
-                result = {
-                    "BEFORE": next_change['before_diff'],
-                    "AFTER": next_change['after_diff'],
-                    "CURRENT_RULE": next_change['rule_number'],
-                    "Complete_after_data": next_change['complete_after'],
-                    "Complete_before_data": next_change['complete_before'],
-                    "Before_data": next_change['before_fragment'],
-                    "After_data": next_change['after_fragment'],
-                    "MORE_CHANGES": True,
-                    "SKIP_RULES": skip_rules
-                }
-                return jsonify({'status': 'rejected', 'message': 'Changes rejected', **result})
-            processing_state['current_index'] += 1
-            current_index = processing_state['current_index']
+        # Use old method (precomputed list is invalid after reject)
+        result = process_json_data_step_by_step(current_data, skip_rules=skip_rules)
         
-        # No more changes
+        # Add the updated skip_rules to the result
+        result['SKIP_RULES'] = skip_rules
+        
         return jsonify({
             'status': 'rejected',
-            'message': 'All changes processed',
-            "BEFORE": None,
-            "AFTER": None,
-            "CURRENT_RULE": None,
-            "MORE_CHANGES": False,
-            "SKIP_RULES": skip_rules
+            'message': 'Changes rejected, trying next available rule',
+            **result
         })
         
     except Exception as e:
@@ -300,50 +307,71 @@ def reject_changes():
 
 @app.route('/accept-changes', methods=['POST'])
 def accept_changes():
-    """Endpoint to accept changes - uses precomputed list (always ready)"""
+    """Endpoint to accept changes - uses precomputed list until reject"""
     try:
         data = request.get_json()
         skip_rules = data.get('skip_rules', [])
         current_rule = data.get('current_rule')
+        complete_after_data = data.get('complete_after_data')
         
         # Add current rule to skip list
         if current_rule and current_rule not in skip_rules:
             skip_rules.append(current_rule)
         
-        # Use precomputed changes (background thread already finished by now)
         all_changes = processing_state.get('all_changes', [])
-        processing_state['current_index'] += 1
-        current_index = processing_state.get('current_index', 0)
         
-        # Find next non-rejected change
-        while current_index < len(all_changes):
-            next_change = all_changes[current_index]
-            if next_change['rule_number'] not in skip_rules:
-                result = {
-                    "BEFORE": next_change['before_diff'],
-                    "AFTER": next_change['after_diff'],
-                    "CURRENT_RULE": next_change['rule_number'],
-                    "Complete_after_data": next_change['complete_after'],
-                    "Complete_before_data": next_change['complete_before'],
-                    "Before_data": next_change['before_fragment'],
-                    "After_data": next_change['after_fragment'],
-                    "MORE_CHANGES": True,
-                    "SKIP_RULES": skip_rules
-                }
+        # Use precomputed list if available (background done)
+        if all_changes and len(all_changes) > 0:
+            # FAST PATH: Use precomputed changes
+            
+            # Start from beginning and skip all rules in skip_rules
+            # This handles the case where user used old method for first few accepts
+            current_index = 0
+            
+            # Find next non-processed change
+            while current_index < len(all_changes):
+                next_change = all_changes[current_index]
+                if next_change['rule_number'] not in skip_rules:
+                    # Found next non-processed rule
+                    result = {
+                        "BEFORE": next_change['before_diff'],
+                        "AFTER": next_change['after_diff'],
+                        "CURRENT_RULE": next_change['rule_number'],
+                        "Complete_after_data": next_change['complete_after'],
+                        "Complete_before_data": next_change['complete_before'],
+                        "Before_data": next_change['before_fragment'],
+                        "After_data": next_change['after_fragment'],
+                        "MORE_CHANGES": True,
+                        "SKIP_RULES": skip_rules
+                    }
+                    return jsonify({'status': 'accepted', 'message': 'Changes accepted', **result})
+                # Skip this rule, check next
+                current_index += 1
+            
+            # No more changes
+            return jsonify({
+                'status': 'accepted',
+                'message': 'All changes processed',
+                "BEFORE": None,
+                "AFTER": None,
+                "CURRENT_RULE": None,
+                "MORE_CHANGES": False,
+                "SKIP_RULES": skip_rules
+            })
+        else:
+            # FALLBACK: Background not ready yet, use old method
+            
+            if complete_after_data and current_rule:
+                cleaned_data, changes_made = clean_json_single_rule(complete_after_data, current_rule)
+                processing_state['original_data'] = cleaned_data
+                processing_state['skip_rules'] = skip_rules
+                
+                result = process_json_data_step_by_step(cleaned_data, skip_rules=skip_rules)
+                result['SKIP_RULES'] = skip_rules
+                
                 return jsonify({'status': 'accepted', 'message': 'Changes accepted', **result})
-            processing_state['current_index'] += 1
-            current_index = processing_state['current_index']
-        
-        # No more changes
-        return jsonify({
-            'status': 'accepted',
-            'message': 'All changes processed',
-            "BEFORE": None,
-            "AFTER": None,
-            "CURRENT_RULE": None,
-            "MORE_CHANGES": False,
-            "SKIP_RULES": skip_rules
-        })
+            else:
+                return jsonify({'error': 'Complete after data not provided'}), 400
         
     except Exception as e:
         return jsonify({'error': f'Processing error: {str(e)}'}), 500
@@ -389,17 +417,10 @@ def download_current_state():
     except Exception as e:
         return jsonify({'error': f'Error creating download: {str(e)}'}), 500
 
-@app.route('/upload-progress', methods=['GET'])
-def get_upload_progress():
-    """Get the current upload/precomputation progress"""
-    return jsonify(processing_state['upload_progress'])
-
 @app.route('/keys-applied-length', methods=['GET'])
 def keys_applied_length_api():
-    """Get the count of rules that will be processed (from precomputed list)"""
-    print("DEBUG API: keys_applied_length")
-    total_changes = len(processing_state.get('all_changes', []))
-    return jsonify({'keys_applied_length': total_changes})
+    """Get the count of rules that have been applied"""
+    return jsonify({'keys_applied_length': keys_applied_length()})
 
 
 if __name__ == '__main__':

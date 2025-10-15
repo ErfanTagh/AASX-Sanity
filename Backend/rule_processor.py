@@ -240,10 +240,10 @@ def clean_json_stepwise(obj, keys_to_clean=None, skip_rules=None, snapshot=True)
             for rule_num, rule_func in dict_rules:
                 if rule_num in skip_rules:
                     continue
-                # Take snapshot BEFORE applying the rule
-                before_fragment = json.loads(json.dumps(current)) if snapshot else None
-                # Also capture the complete before state
-                complete_before = json.loads(json.dumps(root)) if root is not None else None
+                # Always snapshot fragments (needed for diff), but optionally skip complete snapshots
+                before_fragment = json.loads(json.dumps(current))
+                complete_before = json.loads(json.dumps(root)) if (snapshot and root is not None) else None
+                
                 modified, changed = rule_func(current)
                 if changed:
                     
@@ -251,9 +251,10 @@ def clean_json_stepwise(obj, keys_to_clean=None, skip_rules=None, snapshot=True)
                         root = modified
                     else:
                         parent[key] = modified
-                    after_fragment = json.loads(json.dumps(modified)) if snapshot else None
-                    # Return the complete updated JSON
-                    complete_after = json.loads(json.dumps(root)) if root is not None else None
+                    
+                    after_fragment = json.loads(json.dumps(modified))
+                    complete_after = json.loads(json.dumps(root)) if (snapshot and root is not None) else root
+                    
                     return before_fragment, after_fragment, rule_num, complete_after, complete_before
 
             for child_key, child_val in current.items():
@@ -265,19 +266,20 @@ def clean_json_stepwise(obj, keys_to_clean=None, skip_rules=None, snapshot=True)
             for rule_num, rule_func in list_rules:
                 if rule_num in skip_rules:
                     continue
-                # Take snapshot BEFORE applying the rule
-                before_fragment = json.loads(json.dumps(current)) if snapshot else None
-                # Also capture the complete before state
-                complete_before = json.loads(json.dumps(root)) if root is not None else None
+                # Always snapshot fragments (needed for diff), but optionally skip complete snapshots
+                before_fragment = json.loads(json.dumps(current))
+                complete_before = json.loads(json.dumps(root)) if (snapshot and root is not None) else None
+                
                 modified, changed = rule_func(current)
                 if changed:
                     if parent is None:
                         root = modified
                     else:
                         parent[key] = modified
-                    after_fragment = json.loads(json.dumps(modified)) if snapshot else None
-                    # Return the complete updated JSON
-                    complete_after = json.loads(json.dumps(root)) if root is not None else None
+                    
+                    after_fragment = json.loads(json.dumps(modified))
+                    complete_after = json.loads(json.dumps(root)) if (snapshot and root is not None) else root
+                    
                     return before_fragment, after_fragment, rule_num, complete_after, complete_before
 
             for idx, child_val in enumerate(current):

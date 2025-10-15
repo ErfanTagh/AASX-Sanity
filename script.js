@@ -259,73 +259,6 @@ document.addEventListener("DOMContentLoaded", function () {
     URL.revokeObjectURL(url);
   };
 
-  // Function to show upload progress modal
-  function showUploadProgress() {
-    const modal = document.createElement('div');
-    modal.id = 'uploadProgressModal';
-    modal.className = 'modal fade show';
-    modal.style.display = 'block';
-    modal.style.backgroundColor = 'rgba(0,0,0,0.5)';
-    modal.innerHTML = `
-      <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content bg-dark text-light">
-          <div class="modal-header border-secondary">
-            <h5 class="modal-title">
-              <i class="bi bi-gear-fill me-2" style="animation: spin 2s linear infinite;"></i>
-              Analyzing JSON File
-            </h5>
-          </div>
-          <div class="modal-body text-center p-4">
-            <div class="progress-circle mb-3" style="position: relative; width: 150px; height: 150px; margin: 0 auto;">
-              <svg width="150" height="150">
-                <circle cx="75" cy="75" r="65" fill="none" stroke="#334155" stroke-width="10"></circle>
-                <circle id="progressCircle" cx="75" cy="75" r="65" fill="none" stroke="#0ea5e9" stroke-width="10"
-                  stroke-dasharray="408.41" stroke-dashoffset="408.41" transform="rotate(-90 75 75)"
-                  style="transition: stroke-dashoffset 0.3s ease"></circle>
-              </svg>
-              <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 24px; font-weight: bold;">
-                <span id="progressPercent">0%</span>
-              </div>
-            </div>
-            <h6 id="progressMessage" class="text-info mt-3">Starting analysis...</h6>
-            <p id="progressDetails" class="text-muted small">Precomputing changes in background...</p>
-          </div>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(modal);
-    
-    // Add spinner animation
-    const style = document.createElement('style');
-    style.textContent = '@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }';
-    document.head.appendChild(style);
-    
-    return modal;
-  }
-
-  function updateUploadProgress(current, total, message) {
-    const percent = total > 0 ? Math.round((current / total) * 100) : 0;
-    const circumference = 408.41; // 2 * π * 65
-    const offset = circumference - (percent / 100) * circumference;
-    
-    const circle = document.getElementById('progressCircle');
-    const percentText = document.getElementById('progressPercent');
-    const messageText = document.getElementById('progressMessage');
-    const detailsText = document.getElementById('progressDetails');
-    
-    if (circle) circle.style.strokeDashoffset = offset;
-    if (percentText) percentText.textContent = `${percent}%`;
-    if (messageText) messageText.textContent = message || 'Processing...';
-    if (detailsText) detailsText.textContent = `Rule ${current} / ${total}`;
-  }
-
-  function closeUploadProgress() {
-    const modal = document.getElementById('uploadProgressModal');
-    if (modal) {
-      modal.remove();
-    }
-  }
-
   if (fileInput) {
     fileInput.addEventListener("change", function (event) {
       const file = event.target.files[0];
@@ -349,38 +282,15 @@ document.addEventListener("DOMContentLoaded", function () {
       const formData = new FormData();
       formData.append("file", file);
 
-      // Show progress modal
-      showUploadProgress();
-      
-      // Start polling for background precomputation progress
-      const progressInterval = setInterval(() => {
-        fetch("http://localhost:5000/upload-progress")
-          .then(res => res.json())
-          .then(progress => {
-            updateUploadProgress(
-              progress.current_rule,
-              progress.total_rules,
-              progress.message
-            );
-            
-            // Stop polling when complete
-            if (progress.status === 'complete') {
-              clearInterval(progressInterval);
-              setTimeout(() => closeUploadProgress(), 500); // Close after brief delay
-            }
-          })
-          .catch(err => console.error("Progress poll error:", err));
-      }, 300); // Poll every 300ms
+      // Show simple loading overlay
+      showLoading("Processing JSON file...");
 
       fetch("http://localhost:5000/upload", {
         method: "POST",
         body: formData,
       })
         .then((response) => {
-          if (!response.ok) {
-            clearInterval(progressInterval);
-            throw new Error("Upload failed");
-          }
+          if (!response.ok) throw new Error("Upload failed");
           return response.json();
         })
                  .then((jsonData) => {
@@ -421,6 +331,10 @@ document.addEventListener("DOMContentLoaded", function () {
               .catch(error => {
                 console.error("Error fetching keys applied length:", error);
               }); 
+           
+           // Hide loading overlay
+           hideLoading();
+           
            // Show success toast with auto-hide after 5 seconds
            const successToast = new bootstrap.Toast(document.getElementById('successToast'), {
              delay: 3000,
@@ -535,7 +449,7 @@ document.addEventListener("DOMContentLoaded", function () {
         })
         .catch((err) => {
           console.error(err);
-          closeUploadProgress(); // Close progress modal on error
+          hideLoading(); // Hide loading overlay on error
           alert("Error uploading or processing file.");
         });
     });
@@ -543,39 +457,39 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Global download function for cleaned JSON
   window.downloadCleanedJSON = function() {
-    console.log("Download button clicked");
-    console.log("lastCleanedJson:", lastCleanedJson);
-    console.log("originalFilename:", originalFilename);
-    
-    if (!lastCleanedJson) {
-      console.log("No cleaned JSON data available");
+      console.log("Download button clicked");
+      console.log("lastCleanedJson:", lastCleanedJson);
+      console.log("originalFilename:", originalFilename);
+      
+      if (!lastCleanedJson) {
+        console.log("No cleaned JSON data available");
       alert("No cleaned JSON data available to download.");
-      return;
-    }
-    const blob = new Blob([
-      JSON.stringify(lastCleanedJson, null, 2)
-    ], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    
-    // Create download filename based on original filename
-    let downloadFilename = "cleaned_output.json";
-    if (originalFilename) {
-      // Remove .json extension if it exists and add _cleaned.json
-      const nameWithoutExt = originalFilename.replace(/\.json$/i, '');
-      downloadFilename = `${nameWithoutExt}_cleaned.json`;
-    }
-    a.download = downloadFilename;
-    console.log("Download filename:", downloadFilename);
-    document.body.appendChild(a);
-    console.log("Download link created and clicked");
-    a.click();
-    setTimeout(() => {
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      console.log("Download cleanup completed");
-    }, 0);
+        return;
+      }
+      const blob = new Blob([
+        JSON.stringify(lastCleanedJson, null, 2)
+      ], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      
+      // Create download filename based on original filename
+      let downloadFilename = "cleaned_output.json";
+      if (originalFilename) {
+        // Remove .json extension if it exists and add _cleaned.json
+        const nameWithoutExt = originalFilename.replace(/\.json$/i, '');
+        downloadFilename = `${nameWithoutExt}_cleaned.json`;
+      }
+      a.download = downloadFilename;
+      console.log("Download filename:", downloadFilename);
+      document.body.appendChild(a);
+      console.log("Download link created and clicked");
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        console.log("Download cleanup completed");
+      }, 0);
   };
 
   function createShellCard(data, originalData,keys = []) {
