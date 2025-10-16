@@ -26,6 +26,7 @@ EXPOSE 5000
 ENV FLASK_APP=api.py
 ENV FLASK_ENV=production
 ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
 
 # Run the application
-CMD ["python", "api.py"]
+CMD ["python", "-u", "api.py"]

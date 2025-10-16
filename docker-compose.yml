@@ -11,6 +11,7 @@ services:
     environment:
       - FLASK_ENV=production
       - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
     volumes:
       - ./Backend:/app
     networks:

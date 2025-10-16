@@ -131,10 +131,12 @@ def apply_rule_9_multilanguage_property_defaults(obj):
             changed = False
             if isinstance(obj["value"], list):
                 for v in obj["value"]:
-                    if isinstance(v, dict) and v.get("text", None) == "":
-                        v["text"] = "EMPTY"
-                        keys_applied.append(9)
-                        changed = True
+                    if isinstance(v, dict):
+                        text_val = v.get("text")
+                        if text_val is None or (isinstance(text_val, str) and text_val.strip() == ""):
+                            v["text"] = "EMPTY"
+                            keys_applied.append(9)
+                            changed = True
             return obj, changed
     return obj, False
 

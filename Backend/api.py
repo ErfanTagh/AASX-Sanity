@@ -8,11 +8,17 @@ import os
 from copy import deepcopy
 from threading import Thread
 from concurrent.futures import ThreadPoolExecutor
+import time
+from datetime import datetime
 
 # Using pure Python helpers (C++ acceleration disabled)
 
 app = Flask(__name__)
 CORS(app)
+
+# Configuration for handling large files
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max file size
+app.config['JSON_SORT_KEYS'] = False
 
 # Global state to track processing
 processing_state = {
@@ -27,9 +33,12 @@ def clean_json_parallel(data, skip_rules=None):
     if skip_rules is None:
         skip_rules = []
     
+    print(f"    clean_json_parallel: skip_rules={skip_rules}")
+    
     # Check if data has parallelizable structure
     if not isinstance(data, dict):
         # Not a dict, just use normal iterative
+        print("    → Not a dict, using iterative")
         return clean_json_iterative(data, skip_rules=skip_rules)
     
     # Identify arrays that can be processed in parallel
@@ -38,8 +47,11 @@ def clean_json_parallel(data, skip_rules=None):
         if key in data and isinstance(data[key], list) and len(data[key]) > 0:
             parallel_keys.append(key)
     
+    print(f"    → Found parallel keys: {parallel_keys}")
+    
     # If no parallelizable arrays, use normal processing
     if not parallel_keys:
+        print("    → No parallel keys, using iterative")
         return clean_json_iterative(data, skip_rules=skip_rules)
     
     try:
@@ -79,6 +91,10 @@ def precompute_all_changes(original_data):
     Precompute all rule changes in background (optimistic - assumes accepts).
     Runs silently without UI feedback.
     """
+    start_time = time.time()
+    start_timestamp = datetime.now().strftime("%H:%M:%S")
+    print(f"\n🚀 [BACKGROUND THREAD] Precomputation STARTED at {start_timestamp}")
+    
     all_changes = []
     current_data = original_data
     skip_rules = []
@@ -98,7 +114,10 @@ def precompute_all_changes(original_data):
         
         # If no more changes, we're done
         if found_rule is None or before_fragment is None:
+            print(f"  ✓ No more changes found after {iteration-1} iterations")
             break
+        
+        print(f"  Background: Rule {found_rule} found (iteration {iteration})")
         
         # Fragments are always snapshotted, but complete_before might be None (when snapshot=False)
         # If complete_before is None, snapshot current_data as the before state
@@ -123,6 +142,13 @@ def precompute_all_changes(original_data):
         current_data = complete_after
         skip_rules.append(found_rule)
     
+    end_time = time.time()
+    end_timestamp = datetime.now().strftime("%H:%M:%S")
+    elapsed = end_time - start_time
+    
+    print(f"✅ Background FINISHED at {end_timestamp}")
+    print(f"⏱️  Total: {elapsed:.2f}s ({len(all_changes)} changes)")
+    
     return all_changes
 
 def process_json_data_step_by_step(input_data, skip_rules=None):
@@ -130,11 +156,12 @@ def process_json_data_step_by_step(input_data, skip_rules=None):
     Process JSON data through the cleaning pipeline step by step.
     Returns one change at a time for user review.
     """
+    print(f"  [STEP-BY-STEP] Called with skip_rules={skip_rules}")
     try:
-        # Process the data through the cleaning pipeline
-        before, after, current_rule, complete_after, complete_before = clean_json_stepwise(input_data, skip_rules=skip_rules)
-
-        
+        # Process with optimized snapshot=False for speed
+        input_copy = json.loads(json.dumps(input_data))  # Deep copy once
+        before, after, current_rule, complete_after, complete_before = clean_json_stepwise(input_copy, skip_rules=skip_rules, snapshot=False)
+        print(f"  [STEP-BY-STEP] Found rule: {current_rule}")
         
         # Check if any change was made
         if current_rule is None or current_rule == 0:
@@ -145,6 +172,13 @@ def process_json_data_step_by_step(input_data, skip_rules=None):
                 "MORE_CHANGES": False,
                 "MESSAGE": "No more changes found. Processing complete."
             }
+        
+        # Create proper snapshots for display (after finding the change)
+        before = json.loads(json.dumps(before))
+        after = json.loads(json.dumps(after))
+        if complete_before is None:
+            complete_before = json.loads(json.dumps(input_data))  # Use original input
+        complete_after = json.loads(json.dumps(complete_after)) if complete_after else None
         
         # Log specific details about the change
         # Extract only the changed parts - compare before vs after
@@ -166,40 +200,68 @@ def process_json_data_step_by_step(input_data, skip_rules=None):
 
 @app.route('/upload', methods=['POST'])
 def upload_json():
+    print("📤 /upload endpoint called")
+    
     # Check if it's a file upload or JSON data in body
     if request.is_json:
         # JSON data sent in request body (for Accept All & Download)
+        print("  → Request is JSON data (not file upload)")
         try:
             request_data = request.get_json()
             data = request_data.get('json_data')
             skip_rules = request_data.get('skip_rules', [])
             
             if not data:
+                print("  ❌ No json_data provided")
                 return jsonify({'error': 'No json_data provided'}), 400
+            print(f"  ✓ JSON data loaded, skip_rules: {skip_rules}")
         except Exception as e:
+            print(f"  ❌ Error parsing JSON data: {e}")
             return jsonify({'error': f'Invalid JSON data: {str(e)}'}), 400
     else:
         # Traditional file upload
+        print("  → Request is file upload")
         if 'file' not in request.files:
+            print("  ❌ No file part in request")
             return jsonify({'error': 'No file part'}), 400
         
         file = request.files['file']
+        print(f"  → File received: {file.filename}")
         
         if file.filename == '':
+            print("  ❌ Empty filename")
             return jsonify({'error': 'No selected file'}), 400
         
         try:
+            print(f"  → Attempting to parse JSON from file: {file.filename}")
             data = json.load(file)
             skip_rules = []
+            print(f"  ✓ JSON parsed successfully! Size: {len(str(data))} chars")
         except Exception as e:
+            print(f"  ❌ JSON parsing error: {e}")
             return jsonify({'error': f'Invalid JSON: {str(e)}'}), 400
+    
+    print("  → Starting processing...")
+    
+    # Clear keys_applied global for fresh tracking
+    import RuleBasedScriptToCheckBugsV04_1
+    RuleBasedScriptToCheckBugsV04_1.keys_applied.clear()
+    print("  → Cleared keys_applied tracker")
     
     try:
         # Use parallel processing for faster cleaning
+        print(f"  → Running clean_json_parallel with skip_rules={skip_rules}...")
         cleaned = clean_json_parallel(data, skip_rules=skip_rules)
+        data_changed = str(data) != str(cleaned)
+        print(f"  ✓ Parallel cleaning complete")
+        print(f"     - Data changed: {data_changed}")
+        print(f"     - keys_applied count: {len(RuleBasedScriptToCheckBugsV04_1.keys_applied)}")
+        print(f"     - keys_applied list: {list(set(RuleBasedScriptToCheckBugsV04_1.keys_applied))}")
         
-        # Get FIRST change immediately (fast!)
+        # Get FIRST change immediately
+        print("  → Finding first rule change (FOR USER DISPLAY)...")
         before_fragment, after_fragment, current_rule, complete_after_json, complete_before_json = clean_json_stepwise(data, skip_rules=[])
+        print(f"  ✓ First rule found for display: {current_rule}")
         
         if before_fragment:
             changed_parts = extract_changed_parts_fast(before_fragment, normalize(after_fragment))
@@ -211,16 +273,21 @@ def upload_json():
         processing_state['skip_rules'] = []
         processing_state['all_changes'] = []  # Will be filled by background
         
-        # Start background thread to precompute remaining changes (silent)
+        # Start background thread to precompute remaining changes
+        print("  → Starting background precomputation thread...")
         def background_precompute():
             try:
                 all_changes = precompute_all_changes(data)
                 processing_state['all_changes'] = all_changes
+                print(f"💾 Stored {len(all_changes)} changes in cache")
             except Exception as e:
-                pass  # Silently handle errors
+                print(f"❌ Background error: {e}")
+                import traceback
+                traceback.print_exc()
         
         thread = Thread(target=background_precompute, daemon=True)
         thread.start()
+        print("  ✓ Background thread started")
         
         # Optionally save the cleaned file
         save_file = request.form.get('save_file', 'false').lower() == 'true'
@@ -238,7 +305,13 @@ def upload_json():
                 # Continue without saving, just return the cleaned data
                 pass
         
-        return jsonify({
+        print("  ✓ Preparing response...")
+        print(f"  → Response includes:")
+        print(f"     - Cleaned JSON: {len(str(cleaned))} chars")
+        print(f"     - Current Rule: {current_rule}")
+        print(f"     - KEYS count: {len(keys())}")
+        
+        response = jsonify({
             "JSON": cleaned, 
             "KEYS": keys(), 
             "Before_data": before_fragment,
@@ -250,8 +323,13 @@ def upload_json():
             "BEFORE": changed_parts["tree"]["before"], 
             "AFTER": changed_parts["tree"]["after"]
         })
+        print("✅ /upload completed successfully\n")
+        return response
         
     except Exception as e:
+        print(f"❌ Processing error: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': f'Processing error: {str(e)}'}), 500
 
 @app.route('/get-next-change', methods=['POST'])

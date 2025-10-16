@@ -195,6 +195,8 @@ def clean_json_stepwise(obj, keys_to_clean=None, skip_rules=None, snapshot=True)
     complete_before_json is the full JSON before the change was applied.
     rule_num is the rule that was applied (needed for rejection handling).
     """
+    print(f"    → clean_json_stepwise called (snapshot={snapshot}, skip_rules={skip_rules})")
+    
     if skip_rules is None:
         skip_rules = []
     
@@ -230,9 +232,14 @@ def clean_json_stepwise(obj, keys_to_clean=None, skip_rules=None, snapshot=True)
 
     root = obj
     stack = [(None, None, obj)]  # (parent, key, current)
+    items_processed = 0
 
     while stack:
         parent, key, current = stack.pop()
+        items_processed += 1
+        
+        if items_processed % 100 == 0:  # Log every 100 items
+            print(f"      Scanning tree: {items_processed} items processed...")
 
         # Dict rules
         if isinstance(current, dict):
@@ -246,6 +253,7 @@ def clean_json_stepwise(obj, keys_to_clean=None, skip_rules=None, snapshot=True)
                 
                 modified, changed = rule_func(current)
                 if changed:
+                    print(f"    ✓ FOUND CHANGE: Rule {rule_num} (scanned {items_processed} items)")
                     
                     if parent is None:
                         root = modified
@@ -272,6 +280,8 @@ def clean_json_stepwise(obj, keys_to_clean=None, skip_rules=None, snapshot=True)
                 
                 modified, changed = rule_func(current)
                 if changed:
+                    print(f"    ✓ FOUND CHANGE: Rule {rule_num} (scanned {items_processed} items)")
+                    
                     if parent is None:
                         root = modified
                     else:
@@ -288,5 +298,6 @@ def clean_json_stepwise(obj, keys_to_clean=None, skip_rules=None, snapshot=True)
 
         # Primitives are ignored
 
+    print(f"    ✓ clean_json_stepwise complete: Scanned {items_processed} items, no changes found")
     return None, None, None, None, None
 
