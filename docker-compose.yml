@@ -25,6 +25,11 @@ services:
     container_name: aas-frontend
     ports:
       - "80:80"
+    volumes:
+      - ./index.html:/usr/share/nginx/html/index.html
+      - ./script.js:/usr/share/nginx/html/script.js
+      - ./styles.css:/usr/share/nginx/html/styles.css
+      - ./bootstrap-5.0.2-dist:/usr/share/nginx/html/bootstrap-5.0.2-dist
     depends_on:
       - backend
     networks:
