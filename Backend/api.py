@@ -3,6 +3,8 @@ from flask_cors import CORS
 from RuleBasedScriptToCheckBugsV04_1 import clean_json_iterative, save_cleaned_json, keys, keys_applied_length, clean_json_single_rule
 from rule_processor import clean_json_stepwise
 from helpers import normalize, extract_changed_parts_fast
+from rule_loader import RuleLoader
+from rule_adapter import RuleAdapter
 import json
 import os
 from copy import deepcopy
@@ -22,8 +24,18 @@ app.config['JSON_SORT_KEYS'] = False
 
 # Global state to track processing
 processing_state = {
-    'all_changes': []  # Precomputed list (filled by background thread)
+    'all_changes': [],  # Precomputed list (filled by background thread)
+    'rule_adapter': None,  # Current rule adapter instance
+    'current_preset': 'aas_rules'  # Default preset
 }
+
+# Initialize rule loader and adapter
+rule_loader = RuleLoader()
+try:
+    processing_state['rule_adapter'] = RuleAdapter(processing_state['current_preset'])
+except Exception as e:
+    print(f"Warning: Could not load default rule preset: {e}")
+    processing_state['rule_adapter'] = None
 
 def clean_json_parallel(data, skip_rules=None):
     """
@@ -150,6 +162,98 @@ def precompute_all_changes(original_data):
     print(f"⏱️  Total: {elapsed:.2f}s ({len(all_changes)} changes)")
     
     return all_changes
+
+def scan_for_issues(input_data):
+    """
+    Scan JSON data for issues without fixing them.
+    Returns counts of each type of issue found.
+    """
+    from rule_processor import rule_1_remove_empty_lists, rule_2_remove_empty_strings, rule_3_remove_null_values, rule_4_remove_empty_objects
+    from copy import deepcopy
+    
+    issues = {
+        'empty_lists': 0,
+        'empty_strings': 0,
+        'null_values': 0,
+        'empty_objects': 0,
+        'total_issues': 0
+    }
+    
+    def count_issues_recursive(obj):
+        """Recursively count issues in the JSON structure."""
+        if isinstance(obj, dict):
+            # Check this dict for issues
+            test_obj = deepcopy(obj)
+            _, changed = rule_1_remove_empty_lists(test_obj)
+            if changed:
+                # Count how many empty lists were found
+                for key, value in obj.items():
+                    if isinstance(value, list) and len(value) == 0:
+                        issues['empty_lists'] += 1
+                        issues['total_issues'] += 1
+            
+            test_obj = deepcopy(obj)
+            _, changed = rule_2_remove_empty_strings(test_obj)
+            if changed:
+                for key, value in obj.items():
+                    if isinstance(value, str) and value.strip() == "":
+                        issues['empty_strings'] += 1
+                        issues['total_issues'] += 1
+            
+            test_obj = deepcopy(obj)
+            _, changed = rule_3_remove_null_values(test_obj)
+            if changed:
+                for key, value in obj.items():
+                    if value is None:
+                        issues['null_values'] += 1
+                        issues['total_issues'] += 1
+            
+            test_obj = deepcopy(obj)
+            _, changed = rule_4_remove_empty_objects(test_obj)
+            if changed:
+                for key, value in obj.items():
+                    if isinstance(value, dict) and len(value) == 0:
+                        issues['empty_objects'] += 1
+                        issues['total_issues'] += 1
+            
+            # Recursively check children
+            for value in obj.values():
+                if isinstance(value, (dict, list)):
+                    count_issues_recursive(value)
+        
+        elif isinstance(obj, list):
+            for item in obj:
+                if isinstance(item, (dict, list)):
+                    count_issues_recursive(item)
+    
+    count_issues_recursive(input_data)
+    return issues
+
+@app.route('/scan-issues', methods=['POST'])
+def scan_issues():
+    """Endpoint to scan for issues without fixing them."""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'No selected file'}), 400
+        
+        try:
+            data = json.load(file)
+        except Exception as e:
+            return jsonify({'error': f'Invalid JSON: {str(e)}'}), 400
+        
+        issues = scan_for_issues(data)
+        return jsonify({
+            'success': True,
+            'issues': issues,
+            'has_issues': issues['total_issues'] > 0
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Scan error: {str(e)}'}), 500
 
 def process_json_data_step_by_step(input_data, skip_rules=None):
     """
@@ -499,6 +603,69 @@ def download_current_state():
 def keys_applied_length_api():
     """Get the count of rules that have been applied"""
     return jsonify({'keys_applied_length': keys_applied_length()})
+
+@app.route('/rule-presets', methods=['GET'])
+def list_rule_presets():
+    """List all available rule presets"""
+    try:
+        presets = rule_loader.list_available_presets()
+        return jsonify({
+            'presets': presets,
+            'current': processing_state.get('current_preset', 'aas_rules')
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/rule-presets/<preset_name>', methods=['GET'])
+def get_rule_preset_info(preset_name):
+    """Get information about a specific rule preset"""
+    try:
+        engine = rule_loader.load_preset(preset_name)
+        rules_info = rule_loader.get_rule_info(engine.rules)
+        return jsonify(rules_info)
+    except FileNotFoundError:
+        return jsonify({'error': f'Preset "{preset_name}" not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/rule-presets/<preset_name>', methods=['POST'])
+def set_rule_preset(preset_name):
+    """Set the active rule preset"""
+    try:
+        adapter = RuleAdapter(preset_name)
+        processing_state['rule_adapter'] = adapter
+        processing_state['current_preset'] = preset_name
+        
+        rules_info = rule_loader.get_rule_info(adapter.engine.rules)
+        return jsonify({
+            'success': True,
+            'preset': preset_name,
+            'rules_info': rules_info,
+            'message': f'Switched to preset "{preset_name}"'
+        })
+    except FileNotFoundError:
+        return jsonify({'error': f'Preset "{preset_name}" not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/rules', methods=['GET'])
+def get_current_rules():
+    """Get information about currently loaded rules"""
+    try:
+        adapter = processing_state.get('rule_adapter')
+        if adapter is None:
+            return jsonify({'error': 'No rule preset loaded'}), 400
+        
+        rules_info = adapter.get_rules_info()
+        rule_descriptions = adapter.get_rule_descriptions()
+        
+        return jsonify({
+            'rules_info': rules_info,
+            'rules': rule_descriptions,
+            'current_preset': processing_state.get('current_preset', 'aas_rules')
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 if __name__ == '__main__':

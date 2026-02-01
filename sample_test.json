@@ -1,0 +1,189 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "name": "John Doe",
+      "email": "john@example.com",
+      "description": "",
+      "notes": "   ",
+      "bio": null,
+      "tags": ["admin", "premium", "admin", "user", "premium"],
+      "preferences": ["email", "sms", "email", "push"],
+      "notifications": [],
+      "emptyMetadata": {},
+      "addresses": [
+        {
+          "street": "123 Main St",
+          "city": "New York",
+          "zip": "10001",
+          "country": "",
+          "notes": ["home", "primary", "home"],
+          "extra": null,
+          "emptyObj": {}
+        },
+        {
+          "street": "123 Main St",
+          "city": "New York",
+          "zip": "10001",
+          "country": "",
+          "notes": ["home", "primary", "home"],
+          "extra": null,
+          "emptyObj": {}
+        }
+      ],
+      "orders": [
+        {
+          "orderId": "ORD-001",
+          "status": "",
+          "items": [
+            {
+              "productId": "PROD-123",
+              "name": "Laptop",
+              "price": 999.99,
+              "description": null,
+              "reviews": [],
+              "specifications": [],
+              "emptyData": {}
+            },
+            {
+              "productId": "PROD-456",
+              "name": "Mouse",
+              "price": 29.99,
+              "reviews": [],
+              "tags": [],
+              "comment": ""
+            },
+            {
+              "productId": "PROD-123",
+              "name": "Laptop",
+              "price": 999.99,
+              "description": null,
+              "reviews": [],
+              "specifications": [],
+              "emptyData": {}
+            },
+            {
+              "productId": "PROD-456",
+              "name": "Mouse",
+              "price": 29.99,
+              "reviews": [],
+              "tags": [],
+              "comment": ""
+            }
+          ],
+          "discounts": [],
+          "notes": [],
+          "remarks": null,
+          "emptyDetails": {}
+        }
+      ],
+      "metadata": {
+        "createdAt": "2024-01-15",
+        "lastLogin": "2024-01-29",
+        "tags": ["user", "active", "user", "verified"],
+        "categories": ["electronics", "computers", "electronics"],
+        "description": "",
+        "emptySection": {}
+      }
+    },
+    {
+      "id": 2,
+      "name": "Jane Smith",
+      "email": "jane@example.com",
+      "description": "",
+      "bio": null,
+      "tags": [],
+      "preferences": [],
+      "notifications": [],
+      "addresses": [],
+      "orders": [],
+      "emptyProfile": {},
+      "metadata": {
+        "createdAt": "2024-01-20",
+        "lastLogin": "2024-01-28",
+        "tags": ["user", "inactive", "user"],
+        "categories": ["general", "general"],
+        "notes": null,
+        "emptyData": {}
+      }
+    }
+  ],
+  "products": [
+    {
+      "id": "PROD-123",
+      "name": "Laptop",
+      "price": 999.99,
+      "description": "High-performance laptop",
+      "summary": "",
+      "images": [],
+      "reviews": [],
+      "specifications": [],
+      "relatedProducts": [],
+      "emptySpecs": {},
+      "manufacturer": null
+    },
+    {
+      "id": "PROD-456",
+      "name": "Mouse",
+      "price": 29.99,
+      "description": "Wireless mouse",
+      "summary": "   ",
+      "images": ["mouse1.jpg", "mouse2.jpg", "mouse1.jpg", "mouse2.jpg", "mouse3.jpg", "mouse1.jpg"],
+      "reviews": [],
+      "specifications": [],
+      "relatedProducts": [],
+      "warranty": null
+    },
+    {
+      "id": "PROD-789",
+      "name": "Keyboard",
+      "price": 79.99,
+      "description": "Mechanical keyboard",
+      "summary": "",
+      "images": ["keyboard1.jpg", "keyboard2.jpg", "keyboard1.jpg"],
+      "reviews": ["Great product", "Love it", "Great product", "Excellent"],
+      "specifications": ["mechanical", "RGB", "mechanical", "wireless", "RGB"],
+      "relatedProducts": ["PROD-123", "PROD-456", "PROD-123"],
+      "emptyInfo": {},
+      "supplier": null
+    }
+  ],
+  "settings": {
+    "theme": "dark",
+    "language": "en",
+    "description": "",
+    "notifications": {
+      "email": true,
+      "sms": false,
+      "push": ["notification1", "notification2", "notification1"],
+      "categories": ["important", "general", "important", "urgent", "important"],
+      "emptyConfig": {},
+      "description": null
+    },
+    "preferences": [],
+    "filters": [],
+    "customFields": [],
+    "emptySection": {},
+    "notes": null
+  },
+  "analytics": {
+    "pageViews": 1250,
+    "uniqueVisitors": 450,
+    "description": "",
+    "events": ["page_view", "click", "page_view", "scroll", "click", "page_view"],
+    "conversions": ["sale", "signup", "sale", "sale"],
+    "segments": ["new", "returning", "new", "vip", "new"],
+    "emptyMetrics": {},
+    "metadata": null
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "lastUpdated": "2024-01-29",
+    "tags": ["metadata", "system", "metadata", "config", "system"],
+    "categories": ["main", "secondary", "main"],
+    "notes": ["note1", "note2", "note1", "note3", "note2"],
+    "description": "",
+    "emptyData": {},
+    "optional": null
+  }
+}
