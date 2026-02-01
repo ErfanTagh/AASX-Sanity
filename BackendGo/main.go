@@ -27,6 +27,7 @@ func main() {
 	r.HandleFunc("/get-all-changes-for-rule", handlersInstance.GetAllChangesForRule).Methods("POST", "OPTIONS")
 	r.HandleFunc("/accept-changes", handlersInstance.AcceptChanges).Methods("POST", "OPTIONS")
 	r.HandleFunc("/reject-changes", handlersInstance.RejectChanges).Methods("POST", "OPTIONS")
+	r.HandleFunc("/get-precomputed-changes", handlersInstance.GetPrecomputedChanges).Methods("GET", "OPTIONS")
 	r.HandleFunc("/health", handlersInstance.HealthCheck).Methods("GET")
 
 	// Apply CORS middleware

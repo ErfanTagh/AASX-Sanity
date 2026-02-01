@@ -10,7 +10,9 @@ High-performance JSON cleaning backend with step-by-step rule validation, implem
 - **Diff Generation**: Shows only the changed parts between before/after states
 - **Boolean Conversion**: User-configurable boolean string conversion (true/false or "1"/"0")
 - **Fast JSON Processing**: Leverages Go's efficient JSON handling
-- **Concurrent-Ready**: Built for easy parallelization with goroutines
+- **Parallel Processing**: Uses goroutines and channels to process arrays concurrently (up to 4 workers)
+- **Background Precomputation**: Precomputes all changes in background goroutine for instant "Accept All" operations
+- **Thread-Safe State Management**: Uses mutex-protected global state for precomputed changes
 
 ## API Endpoints
 
@@ -21,6 +23,7 @@ High-performance JSON cleaning backend with step-by-step rule validation, implem
 - `POST /accept-changes` - Accept current changes and get next change
 - `POST /reject-changes` - Reject current changes and get next change
 - `POST /clean-specific-rule` - Clean only a specific rule type
+- `GET /get-precomputed-changes` - Get all precomputed changes from background processing
 - `GET /health` - Health check endpoint
 
 ## Building
@@ -58,9 +61,18 @@ docker run -p 5000:5000 aas-sanity-backend
 Go's efficient JSON processing and memory management make this backend:
 - **Faster** than Java for JSON-heavy workloads
 - **Lower memory footprint** for large JSON files
-- **Better concurrency** with goroutines (ready for parallel processing)
+- **True Concurrency** with goroutines and channels (no GIL like Python)
+- **Parallel Array Processing**: Processes top-level arrays concurrently using goroutines
+- **Background Precomputation**: Precomputes all changes silently while user reviews first rule
 - **Faster startup** time
 - **Smaller Docker images**
+
+### Concurrency Features
+
+- **Goroutines**: Lightweight threads for parallel processing
+- **Channels**: Safe communication between goroutines
+- **Mutex Protection**: Thread-safe access to shared state
+- **WaitGroups**: Synchronization for parallel tasks
 
 ## Architecture
 

@@ -1,6 +1,10 @@
 package main
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"sync"
+	"time"
+)
 
 // StepwiseResult represents the result of stepwise processing
 type StepwiseResult struct {
@@ -42,5 +46,24 @@ type NodeContext struct {
 // RuleProcessor holds the state for rule processing
 type RuleProcessor struct {
 	BooleanConversionMode string // "boolean" or "numeric"
+}
+
+// PrecomputedChange represents a precomputed change record
+type PrecomputedChange struct {
+	RuleNumber     int                    `json:"rule_number"`
+	BeforeFragment interface{}            `json:"before_fragment"`
+	AfterFragment  interface{}            `json:"after_fragment"`
+	BeforeDiff     interface{}            `json:"before_diff"`
+	AfterDiff      interface{}            `json:"after_diff"`
+	CompleteBefore interface{}            `json:"complete_before"`
+	CompleteAfter  interface{}            `json:"complete_after"`
+}
+
+// ProcessingState holds global state for precomputed changes
+type ProcessingState struct {
+	mu          sync.RWMutex
+	AllChanges  []PrecomputedChange `json:"all_changes"`
+	IsComputing bool                `json:"is_computing"`
+	StartTime   time.Time           `json:"start_time"`
 }
 

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
+	"time"
 )
 
 // Rule 1: Remove empty lists (empty arrays [])
@@ -340,6 +342,106 @@ func (rp *RuleProcessor) cleanAll(root interface{}) interface{} {
 
 	log.Printf("cleanAll: Processing complete")
 	return result
+}
+
+// CleanAllParallel processes JSON in parallel for faster cleaning
+// Similar to Python's clean_json_parallel - processes top-level arrays concurrently
+func (rp *RuleProcessor) cleanAllParallel(root interface{}) interface{} {
+	if root == nil {
+		return root
+	}
+
+	// Check if data has parallelizable structure
+	obj, ok := root.(map[string]interface{})
+	if !ok {
+		// Not a dict, just use normal iterative
+		log.Printf("cleanAllParallel: Not a dict, using iterative")
+		return rp.cleanAll(root)
+	}
+
+	// Identify arrays that can be processed in parallel
+	parallelKeys := []string{}
+	parallelizableKeys := []string{"assetAdministrationShells", "submodels", "conceptDescriptions"}
+	
+	for _, key := range parallelizableKeys {
+		if value, exists := obj[key]; exists {
+			if arr, ok := value.([]interface{}); ok && len(arr) > 0 {
+				parallelKeys = append(parallelKeys, key)
+			}
+		}
+	}
+
+	log.Printf("cleanAllParallel: Found parallel keys: %v", parallelKeys)
+
+	// If no parallelizable arrays, use normal processing
+	if len(parallelKeys) == 0 {
+		log.Printf("cleanAllParallel: No parallel keys, using iterative")
+		return rp.cleanAll(root)
+	}
+
+	// Process arrays in parallel using goroutines
+	type resultPair struct {
+		key   string
+		value interface{}
+	}
+
+	resultChan := make(chan resultPair, len(parallelKeys))
+	var wg sync.WaitGroup
+
+	// Limit concurrent goroutines to max 4 (like Python's ThreadPoolExecutor)
+	maxWorkers := len(parallelKeys)
+	if maxWorkers > 4 {
+		maxWorkers = 4
+	}
+
+	// Process each parallelizable array in a goroutine
+	for _, key := range parallelKeys {
+		wg.Add(1)
+		go func(k string) {
+			defer wg.Done()
+			value := obj[k]
+			cleaned := rp.cleanAll(value)
+			resultChan <- resultPair{key: k, value: cleaned}
+		}(key)
+	}
+
+	// Wait for all goroutines to complete
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
+
+	// Build result dict
+	result := make(map[string]interface{})
+	for pair := range resultChan {
+		result[pair.key] = pair.value
+	}
+
+	// Add any remaining non-parallelized fields
+	for key, value := range obj {
+		if !contains(parallelKeys, key) {
+			if _, isDict := value.(map[string]interface{}); isDict {
+				result[key] = rp.cleanAll(value)
+			} else if _, isArr := value.([]interface{}); isArr {
+				result[key] = rp.cleanAll(value)
+			} else {
+				result[key] = value
+			}
+		}
+	}
+
+	log.Printf("cleanAllParallel: Processing complete")
+	return result
+}
+
+// Helper function to check if slice contains string
+func contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
 }
 
 // Process rules stepwise, finding the first applicable rule
@@ -978,4 +1080,75 @@ func parseArrayIndex(s string) (int, error) {
 	var idx int
 	_, err := fmt.Sscanf(s, "%d", &idx)
 	return idx, err
+}
+
+// PrecomputeAllChanges precomputes all rule changes in background
+// Similar to Python's precompute_all_changes - runs silently without UI feedback
+func (rp *RuleProcessor) precomputeAllChanges(originalData interface{}, state *ProcessingState) {
+	state.mu.Lock()
+	state.IsComputing = true
+	state.StartTime = time.Now()
+	state.AllChanges = []PrecomputedChange{}
+	state.mu.Unlock()
+
+	log.Printf("🚀 [BACKGROUND GOROUTINE] Precomputation STARTED at %s", state.StartTime.Format("15:04:05"))
+
+	allChanges := []PrecomputedChange{}
+	currentData := deepCopy(originalData)
+	skipRules := make(map[int]bool)
+
+	maxIterations := 100
+	iteration := 0
+
+	for iteration < maxIterations {
+		iteration++
+
+		// Find the next change
+		result := rp.processStepwise(currentData, skipRules)
+
+		// If no more changes, we're done
+		if result.RuleID == nil {
+			log.Printf("  ✓ No more changes found after %d iterations", iteration-1)
+			break
+		}
+
+		log.Printf("  Background: Rule %d found (iteration %d)", *result.RuleID, iteration)
+
+		// Unmarshal fragments
+		var beforeFragment, afterFragment interface{}
+		json.Unmarshal(result.BeforeFragment, &beforeFragment)
+		json.Unmarshal(result.AfterFragment, &afterFragment)
+
+		var completeBefore, completeAfter interface{}
+		json.Unmarshal(result.CompleteBefore, &completeBefore)
+		json.Unmarshal(result.CompleteAfter, &completeAfter)
+
+		// Extract the diff for display
+		diff := extractChangedParts(beforeFragment, afterFragment)
+
+		changeRecord := PrecomputedChange{
+			RuleNumber:     *result.RuleID,
+			BeforeFragment: beforeFragment,
+			AfterFragment:  afterFragment,
+			BeforeDiff:     diff.BeforeTree,
+			AfterDiff:      diff.AfterTree,
+			CompleteBefore: completeBefore,
+			CompleteAfter:  completeAfter,
+		}
+		allChanges = append(allChanges, changeRecord)
+
+		// Update currentData to include this change and skip this rule
+		currentData = completeAfter
+		skipRules[*result.RuleID] = true
+	}
+
+	elapsed := time.Since(state.StartTime)
+	log.Printf("✅ Background FINISHED at %s", time.Now().Format("15:04:05"))
+	log.Printf("⏱️  Total: %.2fs (%d changes)", elapsed.Seconds(), len(allChanges))
+
+	// Update state atomically
+	state.mu.Lock()
+	state.AllChanges = allChanges
+	state.IsComputing = false
+	state.mu.Unlock()
 }

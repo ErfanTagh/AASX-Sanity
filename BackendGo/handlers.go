@@ -7,11 +7,19 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 )
 
-// Handlers holds the rule processor
+// Handlers holds the rule processor and processing state
 type Handlers struct {
-	processor *RuleProcessor
+	processor      *RuleProcessor
+	processingState *ProcessingState
+}
+
+// Global processing state
+var globalProcessingState = &ProcessingState{
+	AllChanges:  []PrecomputedChange{},
+	IsComputing: false,
 }
 
 // NewHandlers creates a new handlers instance
@@ -20,6 +28,7 @@ func NewHandlers() *Handlers {
 		processor: &RuleProcessor{
 			BooleanConversionMode: "boolean",
 		},
+		processingState: globalProcessingState,
 	}
 }
 
@@ -141,8 +150,11 @@ func (h *Handlers) Upload(w http.ResponseWriter, r *http.Request) {
 	}
 	h.processor.BooleanConversionMode = booleanMode
 
-	// Do full clean
-	cleanedData := h.processor.cleanAll(originalData)
+	// Do full clean using parallel processing
+	cleanedData := h.processor.cleanAllParallel(originalData)
+
+	// Start background precomputation in a goroutine (non-blocking)
+	go h.processor.precomputeAllChanges(originalData, h.processingState)
 
 	// Also get first stepwise change for display purposes
 	skipRules := make(map[int]bool)
@@ -480,6 +492,29 @@ func (h *Handlers) RejectChanges(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) HealthCheck(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+// GetPrecomputedChanges handles /get-precomputed-changes endpoint
+func (h *Handlers) GetPrecomputedChanges(w http.ResponseWriter, r *http.Request) {
+	h.processingState.mu.RLock()
+	defer h.processingState.mu.RUnlock()
+
+	response := map[string]interface{}{
+		"all_changes":  h.processingState.AllChanges,
+		"is_computing": h.processingState.IsComputing,
+		"count":        len(h.processingState.AllChanges),
+	}
+
+	if !h.processingState.StartTime.IsZero() {
+		response["start_time"] = h.processingState.StartTime.Format(time.RFC3339)
+		if !h.processingState.IsComputing {
+			elapsed := time.Since(h.processingState.StartTime)
+			response["elapsed_seconds"] = elapsed.Seconds()
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
 
 // CORS middleware
