@@ -7,6 +7,12 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 1rem;
+  width: 100%;
+}
+
+.shell-wrapper > .card {
+  width: 100%;
+  max-width: 100%;
 }
 
 .shell-card {
@@ -897,6 +903,53 @@ body.resizing * {
   background-color: #0284c7;
 }
 
+/* Two-pane resizable for rule review */
+.resizable-container-two {
+  display: flex;
+  flex-direction: row;
+  height: 500px;
+  position: relative;
+  width: 100%;
+  border: 1px solid #475569;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.resizable-pane-two {
+  overflow: hidden;
+  position: relative;
+  background-color: #1f2937;
+  display: flex;
+  flex-direction: column;
+}
+
+.resizable-pane-two.left {
+  flex: 1 1 50%;
+  min-width: 150px;
+}
+
+.resizable-pane-two.right {
+  flex: 1 1 50%;
+  min-width: 150px;
+}
+
+.resizable-divider-two {
+  width: 8px;
+  background-color: #475569;
+  cursor: col-resize;
+  position: relative;
+  flex-shrink: 0;
+  transition: background-color 0.2s;
+}
+
+.resizable-divider-two:hover {
+  background-color: #0ea5e9;
+}
+
+.resizable-divider-two:active {
+  background-color: #0284c7;
+}
+
 /* Visual indicator on hover for three-pane dividers */
 .resizable-divider-three::before {
   content: '';
@@ -1103,15 +1156,15 @@ body.resizing * {
 
 .issue-counts {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.5rem;
 }
 
 .issue-count-item {
   background: rgba(30, 41, 59, 0.6);
   border: 1px solid #334155;
-  border-radius: 8px;
-  padding: 1rem;
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
   text-align: center;
   transition: all 0.3s ease;
 }
@@ -1128,11 +1181,11 @@ body.resizing * {
 }
 
 .issue-count-number {
-  font-size: 2rem;
+  font-size: 1.25rem;
   font-weight: 700;
   color: #0ea5e9;
   display: block;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.15rem;
 }
 
 .issue-count-item.has-issues .issue-count-number {
@@ -1140,10 +1193,11 @@ body.resizing * {
 }
 
 .issue-count-label {
-  font-size: 0.85rem;
+  font-size: 0.7rem;
   color: #94a3b8;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  margin-bottom: 0.25rem;
 }
 
 .issue-count-item.has-issues .issue-count-label {
@@ -1181,4 +1235,51 @@ body.resizing * {
   font-size: 3rem;
   display: block;
   margin-bottom: 1rem;
+}
+
+/* Purple outline button for boolean conversion */
+.btn-outline-purple {
+  border-color: #8b5cf6 !important;
+  color: #8b5cf6 !important;
+  background-color: transparent !important;
+}
+
+.btn-outline-purple:hover,
+.btn-outline-purple:focus {
+  background-color: rgba(139, 92, 246, 0.1) !important;
+  border-color: #8b5cf6 !important;
+  color: #8b5cf6 !important;
+}
+
+.btn-check:checked + .btn-outline-purple,
+.btn-check:active + .btn-outline-purple {
+  background-color: #8b5cf6 !important;
+  border-color: #8b5cf6 !important;
+  color: white !important;
+}
+
+/* Single-page workflow sections */
+.workflow-section {
+  animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.workflow-section .card {
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s ease;
+}
+
+.workflow-section .card:hover {
+  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.4);
+  transform: translateY(-2px);
 }

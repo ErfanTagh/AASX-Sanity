@@ -1,0 +1,38 @@
+[
+  {
+    "backend": "C++",
+    "status": "Success",
+    "avg_time": 4.572819423675537,
+    "min_time": 4.374962329864502,
+    "max_time": 5.02417254447937,
+    "throughput": 1.6679688356207023,
+    "file_size_mb": 7.627320289611816
+  },
+  {
+    "backend": "Python",
+    "status": "Not Running",
+    "avg_time": null,
+    "min_time": null,
+    "max_time": null,
+    "throughput": null,
+    "file_size_mb": null
+  },
+  {
+    "backend": "Go",
+    "status": "Not Running",
+    "avg_time": null,
+    "min_time": null,
+    "max_time": null,
+    "throughput": null,
+    "file_size_mb": null
+  },
+  {
+    "backend": "Java",
+    "status": "Not Running",
+    "avg_time": null,
+    "min_time": null,
+    "max_time": null,
+    "throughput": null,
+    "file_size_mb": null
+  }
+]

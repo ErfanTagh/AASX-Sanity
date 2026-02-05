@@ -1,0 +1,81 @@
+{
+  "assetAdministrationShells": [
+    {
+      "id": "shell1",
+      "idShort": "Shell1",
+      "empty_list": [],
+      "empty_string": "",
+      "whitespace_string": "   ",
+      "null_value": null,
+      "empty_object": {},
+      "valid_field": "This is a valid field",
+      "boolean_string_true": "true",
+      "boolean_string_false": "false",
+      "boolean_string_yes": "yes",
+      "boolean_string_1": "1",
+      "boolean_string_0": "0",
+      "language_code_bad": "en?",
+      "duplicate_array": [
+        {"id": 1, "name": "item1"},
+        {"id": 2, "name": "item2"},
+        {"id": 1, "name": "item1"},
+        {"id": 3, "name": "item3"},
+        {"id": 2, "name": "item2"}
+      ],
+      "nested_object": {
+        "empty_list": [],
+        "empty_string": "",
+        "null_value": null,
+        "valid_nested": "nested value",
+        "language": "de?",
+        "another_nested": {
+          "empty_object": {},
+          "valid": true
+        }
+      },
+      "submodels": [
+        {
+          "id": "submodel1",
+          "empty_list": [],
+          "empty_string": "",
+          "null_value": null,
+          "valid_data": "submodel data"
+        },
+        {
+          "id": "submodel2",
+          "empty_object": {},
+          "boolean_string": "on",
+          "language_code": "fr?"
+        }
+      ]
+    },
+    {
+      "id": "shell2",
+      "idShort": "",
+      "empty_list": [],
+      "null_value": null,
+      "valid_field": "Shell 2 data",
+      "mixed_array": [
+        null,
+        "",
+        {},
+        [],
+        "valid_item",
+        123
+      ]
+    }
+  ],
+  "top_level_empty_list": [],
+  "top_level_empty_string": "",
+  "top_level_null": null,
+  "top_level_empty_object": {},
+  "top_level_valid": "This should remain",
+  "metadata": {
+    "version": "1.0",
+    "empty_list": [],
+    "empty_string": "",
+    "null_value": null
+  }
+}
+
+

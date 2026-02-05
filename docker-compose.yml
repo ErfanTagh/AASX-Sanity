@@ -1,13 +1,13 @@
 services:
   backend:
     build:
-      context: ./BackendGo
+      context: ./cpp-project/BackendCpp
       dockerfile: Dockerfile
     container_name: aas-backend
     ports:
-      - "5001:5000"
+      - "5001:5001"
     environment:
-      - SERVER_PORT=5000
+      - SERVER_PORT=5001
     networks:
       - aas-network
     restart: unless-stopped

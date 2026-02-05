@@ -28,7 +28,7 @@ window.findFirstRuleWithChanges = async function(currentData, skipRules = []) {
     if (skipRules.includes(ruleId)) continue;
     
     try {
-      const response = await fetch("http://localhost:5001/get-all-changes-for-rule", {
+      const response = await fetch("/api/get-all-changes-for-rule", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -55,7 +55,7 @@ window.findFirstRuleWithChanges = async function(currentData, skipRules = []) {
 // Helper function to load all changes for a specific rule
 window.loadAllChangesForRule = async function(currentData, ruleId, skipRules = []) {
   try {
-    const response = await fetch("http://localhost:5001/get-all-changes-for-rule", {
+    const response = await fetch("/api/get-all-changes-for-rule", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -87,7 +87,7 @@ window.countAllPendingChanges = async function(currentData, skipRules = []) {
   
   for (let i = 0; i < maxIterations; i++) {
     try {
-      const response = await fetch("http://localhost:5001/get-next-change", {
+      const response = await fetch("/api/get-next-change", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -138,10 +138,24 @@ window.countAllPendingChanges = async function(currentData, skipRules = []) {
 window.displayIssueSummary = function(issues) {
   const issueSummary = document.getElementById('issueSummary');
   const issueCounts = document.getElementById('issueCounts');
+  const scanResultsSection = document.getElementById('scanResultsSection');
+  const processingOptionsSection = document.getElementById('processingOptionsSection');
   
   if (!issueSummary || !issueCounts) {
     console.error("Issue summary elements not found");
     return;
+  }
+  
+  // Show scan results section
+  if (scanResultsSection) {
+    scanResultsSection.style.display = 'block';
+    // Scroll to scan results
+    setTimeout(() => scanResultsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
+  }
+  
+  // Show processing options section
+  if (processingOptionsSection) {
+    processingOptionsSection.style.display = 'block';
   }
   
   const issueTypes = [
@@ -161,22 +175,93 @@ window.displayIssueSummary = function(issues) {
     const ruleId = index + 1; // Rule IDs: 1=empty lists, 2=empty strings, 3=null values, 4=empty objects, 5=duplicates
     html += `
       <div class="issue-count-item ${hasIssues ? 'has-issues' : ''}">
-        <i class="bi ${type.icon} mb-2" style="font-size: 1.5rem; color: ${hasIssues ? '#f59e0b' : '#22c55e'};"></i>
+        <i class="bi ${type.icon} mb-1" style="font-size: 1.1rem; color: ${hasIssues ? '#f59e0b' : '#22c55e'};"></i>
         <span class="issue-count-number">${count}</span>
         <div class="issue-count-label">${type.label}</div>
-        <small style="color: #64748b; font-size: 0.75rem;"><code>${type.code}</code></small>
-        ${hasIssues ? `<button class="btn btn-sm btn-danger mt-2 remove-issue-btn" onclick="removeSpecificIssue(${ruleId})" style="width: 100%;">
+        <small style="color: #64748b; font-size: 0.65rem;"><code>${type.code}</code></small>
+        ${hasIssues ? `<button class="btn btn-sm btn-danger mt-1 remove-issue-btn" onclick="removeSpecificIssue(${ruleId})" style="width: 100%; padding: 0.25rem 0.5rem; font-size: 0.75rem;">
           <i class="bi bi-trash me-1"></i>Remove
         </button>` : ''}
       </div>
     `;
   });
   
+  // Add boolean conversion option at the end (integrated into scan results)
+  // Two separate buttons for each conversion mode
+  html += `
+    <div class="issue-count-item" style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 0.5rem; padding-top: 0.5rem; background: rgba(139, 92, 246, 0.05); border-radius: 4px; padding: 0.5rem 0.75rem;">
+      <i class="bi bi-gear mb-1" style="font-size: 1.1rem; color: #8b5cf6;"></i>
+      <div class="issue-count-label" style="font-size: 0.7rem; margin-bottom: 0.25rem; color: #8b5cf6; font-weight: 500;">
+        Boolean Conversion
+      </div>
+      <button class="btn btn-sm btn-danger mt-1 remove-issue-btn" onclick="applyBooleanConversion('boolean')" style="width: 100%; margin-bottom: 0.25rem; padding: 0.25rem 0.5rem; font-size: 0.75rem;">
+        <i class="bi bi-check-circle me-1"></i>Convert to true/false
+      </button>
+      <button class="btn btn-sm btn-danger mt-1 remove-issue-btn" onclick="applyBooleanConversion('numeric')" style="width: 100%; padding: 0.25rem 0.5rem; font-size: 0.75rem;">
+        <i class="bi bi-1-circle me-1"></i>Convert to "1"/"0"
+      </button>
+      <small style="color: #64748b; font-size: 0.65rem; display: block; margin-top: 0.25rem;">
+        <i class="bi bi-info-circle me-1"></i>
+        Converts "true"/"false" strings
+      </small>
+    </div>
+  `;
+  
   issueCounts.innerHTML = html;
   issueSummary.style.display = 'block';
+  
+  // Re-initialize boolean conversion radio buttons (they were just created)
+  setTimeout(() => {
+    const booleanTrueRadio = document.getElementById('booleanTrue');
+    const booleanNumericRadio = document.getElementById('booleanNumeric');
+    const booleanConversionHint = document.getElementById('booleanConversionHint');
+    
+    if (booleanTrueRadio && booleanNumericRadio) {
+      // Set initial state
+      booleanTrueRadio.checked = window.booleanConversionMode === "boolean";
+      booleanNumericRadio.checked = window.booleanConversionMode === "numeric";
+      
+      // Remove old listeners by cloning (to avoid duplicate listeners)
+      const newTrueRadio = booleanTrueRadio.cloneNode(true);
+      const newNumericRadio = booleanNumericRadio.cloneNode(true);
+      booleanTrueRadio.parentNode.replaceChild(newTrueRadio, booleanTrueRadio);
+      booleanNumericRadio.parentNode.replaceChild(newNumericRadio, booleanNumericRadio);
+      
+      // Add event listeners to new elements
+      newTrueRadio.addEventListener('change', function() {
+        if (this.checked) {
+          window.booleanConversionMode = "boolean";
+          const hint = document.getElementById('booleanConversionHint');
+          if (hint) {
+            hint.textContent = 'Converts "true"/"false" strings to boolean values (true/false)';
+          }
+        }
+      });
+      
+      newNumericRadio.addEventListener('change', function() {
+        if (this.checked) {
+          window.booleanConversionMode = "numeric";
+          const hint = document.getElementById('booleanConversionHint');
+          if (hint) {
+            hint.textContent = 'Converts "true"/"false" strings to numeric strings ("1"/"0")';
+          }
+        }
+      });
+      
+      // Update hint text
+      if (booleanConversionHint) {
+        if (window.booleanConversionMode === "boolean") {
+          booleanConversionHint.textContent = 'Converts "true"/"false" strings to boolean values (true/false)';
+        } else {
+          booleanConversionHint.textContent = 'Converts "true"/"false" strings to numeric strings ("1"/"0")';
+        }
+      }
+    }
+  }, 0);
 };
 
 // Define handleFileUpload IMMEDIATELY so it's available when HTML onchange fires
+// Also make it available globally without window prefix for compatibility
 window.handleFileUpload = function(event) {
   console.log("=== handleFileUpload called ===");
   console.log("Event:", event);
@@ -221,11 +306,11 @@ window.handleFileUpload = function(event) {
     console.error("Could not find fileNameDisplay or fileNameText elements!");
   }
   
-  // Show rule settings card after file is uploaded
+  // Hide rule settings card - it's now integrated into scan results
   const ruleSettingsCard = document.getElementById('ruleSettingsCard');
   if (ruleSettingsCard) {
-    ruleSettingsCard.style.display = 'block';
-    console.log("Rule settings card shown");
+    ruleSettingsCard.style.display = 'none';
+    console.log("Rule settings card hidden (integrated into scan results)");
   }
   
   if (uploadAreaEl) {
@@ -248,8 +333,8 @@ window.handleFileUpload = function(event) {
   formData.append("file", file);
   console.log("FormData created, file appended");
   
-  console.log("Making fetch request to http://localhost:5001/scan-issues");
-  fetch("http://localhost:5001/scan-issues", {
+  console.log("Making fetch request to /api/scan-issues");
+  fetch("/api/scan-issues", {
     method: "POST",
     body: formData,
   })
@@ -394,7 +479,7 @@ window.handleFileUpload = function(event) {
     .catch((error) => {
       hideLoading();
       console.error("Scan error:", error);
-      alert("Error scanning file: " + error.message + "\n\nPlease check:\n1. Backend is running on port 5001\n2. Browser console for more details");
+      alert("Error scanning file: " + error.message + "\n\nPlease check:\n1. Backend is running\n2. Browser console for more details");
     });
 };
 
@@ -405,6 +490,24 @@ document.addEventListener("DOMContentLoaded", function () {
   console.log("=== DOMContentLoaded - Script.js loaded ===");
   const fileInput = document.getElementById("jsonFileInput");
   console.log("File input element:", fileInput ? "Found" : "NOT FOUND");
+  
+  // Attach event listener to file input immediately (inside DOMContentLoaded)
+  // This ensures the DOM is ready before we attach listeners
+  if (fileInput) {
+    fileInput.addEventListener('change', function(event) {
+      console.log("File input change event fired (programmatic listener)");
+      if (typeof window.handleFileUpload === 'function') {
+        console.log("Calling window.handleFileUpload");
+        window.handleFileUpload(event);
+      } else {
+        console.error('handleFileUpload not available when event fired');
+        alert('Error: File upload handler not ready. Please refresh the page.');
+      }
+    }, false);
+    console.log("✓ File input event listener attached");
+  } else {
+    console.error("✗ File input element not found when trying to attach listener!");
+  }
   
   // Add a visible indicator that script loaded
   const uploadArea = document.getElementById("uploadArea");
@@ -457,93 +560,20 @@ document.addEventListener("DOMContentLoaded", function () {
   const shellWrapper = document.querySelector(".shell-wrapper");
   const shellInteractive = document.querySelector(".code-wrapper");
   
-  // Initialize Rule Validation tab when clicked - but only if truly empty
-  const validationTab = document.getElementById('validation-tab');
+  // Single-page workflow sections
+  const uploadSection = document.getElementById('uploadSection');
+  const scanResultsSection = document.getElementById('scanResultsSection');
+  const processingOptionsSection = document.getElementById('processingOptionsSection');
+  const ruleValidationSection = document.getElementById('ruleValidationSection');
+  const finalResultSection = document.getElementById('finalResultSection');
+  const quickCleanResultsSection = document.getElementById('quickCleanResultsSection');
+  const ruleStatsSection = document.getElementById('ruleStatsSection');
+  
+  // Initialize Rule Validation section
   const validationTabContent = document.getElementById('validation');
   
-  if (validationTab && validationTabContent) {
-    // Only show initial message on page load if tab is completely empty
-    // Use a flag to track if we've already initialized to avoid clearing content later
-    let validationTabInitialized = false;
-    
-    // Check if tab is empty on page load
-    const isEmpty = !validationTabContent.hasChildNodes() || 
-                    validationTabContent.innerHTML.trim() === '' ||
-                    validationTabContent.innerHTML.includes('Rule Validation System') && 
-                    validationTabContent.innerHTML.includes('Upload a JSON file');
-    
-    if (isEmpty && !window.originalJson) {
-      validationTabContent.innerHTML = `
-        <div class="card shadow">
-          <div class="card-body text-center p-5">
-            <i class="bi bi-shield-check" style="font-size: 4rem; color: #6c757d; margin-bottom: 1rem;"></i>
-            <h3 class="mb-3">Rule Validation System</h3>
-            <p class="text-muted mb-4">
-              Upload a JSON file to start the rule validation process.<br>
-              You'll be able to review and accept/reject each rule change step by step.
-            </p>
-            <button class="btn btn-primary btn-lg" onclick="document.getElementById('jsonFileInput').click()">
-              <i class="bi bi-cloud-upload me-2"></i>Upload JSON File
-            </button>
-          </div>
-        </div>
-      `;
-      validationTabInitialized = true;
-    }
-    
-    // Listen for tab show event - but NEVER clear content that was set by file processing
-    validationTab.addEventListener('shown.bs.tab', function() {
-      // If validation data is ready but tab is empty, populate it now
-      if (window.validationDataReady && window.before && window.after && window.currentRule !== null) {
-        if (!validationTabContent.hasChildNodes() || 
-            validationTabContent.innerHTML.includes('Upload a JSON file') ||
-            validationTabContent.innerHTML.includes('Rule Validation System') && 
-            validationTabContent.innerHTML.includes('Upload a JSON file')) {
-          console.log("Tab clicked - populating validation tab with ready data");
-          if (window.createCodeCard) {
-            const codeCard = window.createCodeCard(
-              window.before, 
-              window.after, 
-              window.before_full || window.before, 
-              window.after_full || window.after
-            );
-            validationTabContent.innerHTML = "";
-            validationTabContent.appendChild(codeCard);
-            window.validationDataReady = false; // Mark as populated
-            console.log("✓ Validation tab populated on tab click");
-          }
-        }
-      }
-      
-      // Check if content exists and is NOT the default message
-      const hasRealContent = validationTabContent.hasChildNodes() && 
-                            validationTabContent.innerHTML.trim() !== '' &&
-                            !validationTabContent.innerHTML.includes('Upload a JSON file to start');
-      
-      // Only show default message if:
-      // 1. Tab is empty AND
-      // 2. No file has been uploaded AND  
-      // 3. We haven't already initialized it
-      if (!hasRealContent && !window.originalJson && !validationTabInitialized) {
-        validationTabContent.innerHTML = `
-          <div class="card shadow">
-            <div class="card-body text-center p-5">
-              <i class="bi bi-shield-check" style="font-size: 4rem; color: #6c757d; margin-bottom: 1rem;"></i>
-              <h3 class="mb-3">Rule Validation System</h3>
-              <p class="text-muted mb-4">
-                Upload a JSON file to start the rule validation process.<br>
-                You'll be able to review and accept/reject each rule change step by step.
-              </p>
-              <button class="btn btn-primary btn-lg" onclick="document.getElementById('jsonFileInput').click()">
-                <i class="bi bi-cloud-upload me-2"></i>Upload JSON File
-              </button>
-            </div>
-          </div>
-        `;
-        validationTabInitialized = true;
-      }
-    });
-  }
+  // For single-page workflow, validation section is shown/hidden as needed
+  // No need for tab event listeners or initial messages
   
   // Test if handleFileUpload is accessible
   if (typeof window.handleFileUpload === 'function') {
@@ -893,7 +923,7 @@ document.addEventListener("DOMContentLoaded", function () {
       // Add boolean conversion mode to form data
       formData.append("boolean_conversion_mode", window.booleanConversionMode || "boolean");
       
-      fetch("http://localhost:5001/upload", {
+      fetch("/api/upload", {
         method: "POST",
         body: formData,
       })
@@ -908,7 +938,13 @@ document.addEventListener("DOMContentLoaded", function () {
            shellInteractive.innerHTML = "";
 
            // Store the cleaned JSON for download
+           // IMPORTANT: Always use jsonData["JSON"] which is the FULLY cleaned JSON (all rules applied)
+           // NOT jsonData["Complete_after_data"] which is only stepwise (one rule at a time)
            window.lastCleanedJson = jsonData["JSON"];
+           console.log("Using FULLY cleaned JSON (data.JSON) for download, not Complete_after_data");
+
+           // Update download button state
+           window.updateDownloadCleanedButton();
 
            // Store the applied Keys
            keys = jsonData["KEYS"] || [];
@@ -937,7 +973,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
               // Fetch keys applied length
-              fetch("http://localhost:5001/keys-applied-length", {
+              fetch("/api/keys-applied-length", {
                 method: "GET"
               })
               .then(response => response.json())
@@ -1002,7 +1038,7 @@ document.addEventListener("DOMContentLoaded", function () {
              
              console.log("Calling /get-next-change with data:", dataToSend ? "present" : "missing");
              
-             fetch("http://localhost:5001/get-next-change", {
+             fetch("/api/get-next-change", {
                method: "POST",
                headers: {
                  "Content-Type": "application/json",
@@ -1035,7 +1071,7 @@ document.addEventListener("DOMContentLoaded", function () {
                    validationTabContent.innerHTML = "";
                    validationTabContent.appendChild(codeCard);
                    console.log("✓ Validation card created and appended");
-                 } else {
+               } else {
                    console.error("✗ Validation tab content element not found!");
                  }
                } else {
@@ -1128,7 +1164,7 @@ document.addEventListener("DOMContentLoaded", function () {
               // Use the validation tab element directly, not shellInteractive
               const validationTabContent = document.getElementById('validation') || shellInteractive;
               if (validationTabContent && before && after) {
-                const codeCard = createCodeCard(before, after, before_full, after_full);
+              const codeCard = createCodeCard(before, after, before_full, after_full);
                 validationTabContent.innerHTML = "";
                 validationTabContent.appendChild(codeCard);
               }
@@ -1157,7 +1193,7 @@ document.addEventListener("DOMContentLoaded", function () {
               // Use the validation tab element directly, not shellInteractive
               const validationTabContent = document.getElementById('validation') || shellInteractive;
               if (validationTabContent && before && after) {
-                const codeCard = createCodeCard(before, after, before_full, after_full);
+              const codeCard = createCodeCard(before, after, before_full, after_full);
                 validationTabContent.innerHTML = "";
                 validationTabContent.appendChild(codeCard);
               }
@@ -1183,14 +1219,45 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
+  // Helper function to update the download cleaned JSON button state
+  window.updateDownloadCleanedButton = function() {
+    const downloadBtn = document.getElementById('downloadCleanedBtnInCard');
+    if (downloadBtn) {
+      if (window.lastCleanedJson) {
+        downloadBtn.disabled = false;
+        downloadBtn.title = 'Download the cleaned/edited JSON file';
+        downloadBtn.classList.remove('btn-outline-secondary');
+        downloadBtn.classList.add('btn-outline-success');
+      } else {
+        downloadBtn.disabled = true;
+        downloadBtn.title = 'No cleaned JSON available yet. Please clean the file first.';
+        downloadBtn.classList.remove('btn-outline-success');
+        downloadBtn.classList.add('btn-outline-secondary');
+      }
+    }
+  };
+  
   // Global download function for cleaned JSON
   window.downloadCleanedJSON = function() {
       console.log("Download button clicked");
       console.log("window.lastCleanedJson:", !!window.lastCleanedJson);
       console.log("window.originalFilename:", window.originalFilename);
       
-      // Use global variable
-      const cleanedData = window.lastCleanedJson;
+      // IMPORTANT: Always use the fully cleaned JSON from backend (data.JSON)
+      // NOT Complete_after_data which is only stepwise (one rule at a time)
+      let cleanedData = window.lastCleanedJson;
+      
+      // If lastCleanedJson is not available or seems incomplete, try to get it from the backend
+      if (!cleanedData) {
+        console.warn("lastCleanedJson not available, checking for alternative sources");
+        // Fallback: use currentState if available, but warn user
+        cleanedData = window.currentState || window.originalJson;
+        if (cleanedData === window.originalJson) {
+          alert("No cleaned JSON data available. Please process your file first.");
+          return;
+        }
+      }
+      
       const filename = window.originalFilename;
       
       if (!cleanedData) {
@@ -1541,6 +1608,18 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     console.log("createCodeCard: Counters - pending:", window.pendingCount, "approved:", window.approvedCount, "rejected:", window.rejectedCount);
     
+    // Ensure old workflow state is set if not using new step-by-step workflow
+    if (!window.stepByStepState) {
+      // Set up old workflow state variables if they're not set
+      if (before && !window.before) window.before = before;
+      if (after && !window.after) window.after = after;
+      if (before_full && !window.before_full) window.before_full = before_full;
+      if (after_full && !window.after_full) window.after_full = after_full;
+      if (!window.skipRules) window.skipRules = [];
+      if (!window.complete_after_data && after_full) window.complete_after_data = after_full;
+      if (!window.complete_before_data && before_full) window.complete_before_data = before_full;
+    }
+    
     console.log("=== DEBUG: createCodeCard called ===");
     console.log("before parameter:", JSON.stringify(before, null, 2));
     console.log("after parameter:", JSON.stringify(after, null, 2));
@@ -1690,10 +1769,19 @@ document.addEventListener("DOMContentLoaded", function () {
     const card = document.createElement("div");
     card.className = "code-card card shadow";
     
-    // Get current state (with accepted changes applied)
+    // Get current state (with all accepted changes applied) - for middle pane
     const currentState = computeCurrentStateFromAcceptedChanges() || originalData;
     const history = window.changeHistory || [];
-    const acceptedCount = history.filter(h => h.action === 'accepted').length;
+    
+    // Count unique accepted rules (not just individual changes)
+    const acceptedRules = new Set();
+    history.forEach(h => {
+      if (h.action === 'accepted') {
+        acceptedRules.add(h.ruleNumber);
+      }
+    });
+    const acceptedRulesCount = acceptedRules.size;
+    const acceptedChangesCount = history.filter(h => h.action === 'accepted').length;
     
     card.innerHTML = `
       <div class="card-header bg-primary text-white">
@@ -1709,10 +1797,10 @@ document.addEventListener("DOMContentLoaded", function () {
           <!-- History will be populated by updateChangesHistoryDisplay -->
         </div>
         
-        <!-- Three-Pane Comparison -->
-        <div class="resizable-container-three">
+        <!-- Two-Pane Comparison -->
+        <div class="resizable-container-two" style="height: 500px;">
           <!-- Original Uploaded JSON Pane -->
-          <div class="resizable-pane-three history">
+          <div class="resizable-pane-two left" style="width: 50%;">
             <h6 class="text-secondary p-2 m-0 bg-dark border-bottom">
               <i class="bi bi-file-earmark-arrow-up me-2"></i>Original Upload
             </h6>
@@ -1721,40 +1809,23 @@ document.addEventListener("DOMContentLoaded", function () {
             </div>
           </div>
           
-          <div class="resizable-divider-three"></div>
+          <div class="resizable-divider-two"></div>
           
           <!-- Current State Pane -->
-          <div class="resizable-pane-three middle">
+          <div class="resizable-pane-two right" style="width: 50%;">
             <h6 class="text-warning p-2 m-0 bg-dark border-bottom">
-              <i class="bi bi-file-code me-2"></i>Current State (${acceptedCount} changes accepted)
+              <i class="bi bi-file-code me-2"></i>Current State (${acceptedRulesCount} rules, ${acceptedChangesCount} changes accepted)
             </h6>
             <div id="currentStateContent" class="diff-container bg-dark text-light p-2" style="height: calc(100% - 40px); overflow: auto; font-family: 'Courier New', monospace; font-size: 12px;">
               <pre class="m-0"><code>${escapeHTML(JSON.stringify(currentState || {}, null, 2))}</code></pre>
-            </div>
-          </div>
-          
-          <div class="resizable-divider-three"></div>
-          
-          <!-- Final Result Pane -->
-          <div class="resizable-pane-three right">
-            <h6 class="text-success p-2 m-0 bg-dark border-bottom d-flex justify-content-between align-items-center">
-              <span>
-                <i class="bi bi-download me-2"></i>Final Cleaned JSON
-              </span>
-              <button class="btn btn-sm btn-success" onclick="downloadCleanedJSON()">
-                <i class="bi bi-download"></i> Download
-              </button>
-            </h6>
-            <div class="diff-container bg-dark text-light p-2" style="height: calc(100% - 40px); overflow: auto; font-family: 'Courier New', monospace; font-size: 12px;">
-              <pre class="m-0"><code>${escapeHTML(JSON.stringify(data, null, 2))}</code></pre>
             </div>
           </div>
         </div>
       </div>
     `;
     
-    // Initialize three-pane resizable functionality
-    setTimeout(() => initializeThreePaneResizable(card), 0);
+    // Initialize two-pane resizable functionality
+    setTimeout(() => initializeTwoPaneResizable(card), 0);
     
     // Initialize history display
     setTimeout(() => updateChangesHistoryDisplay(), 0);
@@ -1978,23 +2049,17 @@ document.addEventListener("DOMContentLoaded", function () {
     change.accepted = true;
     change.rejected = false;
     
-    // Apply this change to current state
-    if (window.currentState) {
-      applyChangeToState(change, window.currentState);
-    } else {
-      // Recompute current state
-      computeCurrentStateFromAcceptedChanges();
-    }
+    // Compute the state after this change is applied
+    const currentState = computeCurrentStateFromAcceptedChanges();
     
-    // Track in change history
+    // Track in change history with the updated state
     if (typeof addToChangeHistory === 'function') {
-      const currentState = computeCurrentStateFromAcceptedChanges();
       addToChangeHistory(
         ruleId,
         'accepted',
         change.beforeValue,
         change.afterValue,
-        currentState
+        currentState // State after this change is applied
       );
     }
     
@@ -2047,23 +2112,25 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!window.allChanges) return;
     
     const pending = window.allChanges.filter(c => !c.accepted && !c.rejected);
+    
+    // First, mark all as accepted
     pending.forEach(change => {
       change.accepted = true;
       change.rejected = false;
-      // Apply change to current state
-      if (window.currentState) {
-        applyChangeToState(change, window.currentState);
-      }
-      
-      // Track each change in history
+    });
+    
+    // Then compute the state after all changes are applied
+    const finalState = computeCurrentStateFromAcceptedChanges();
+    
+    // Track all changes in history with the final state
+    pending.forEach(change => {
       if (typeof addToChangeHistory === 'function') {
-        const currentState = computeCurrentStateFromAcceptedChanges();
         addToChangeHistory(
           ruleId,
           'accepted',
           change.beforeValue,
           change.afterValue,
-          currentState
+          finalState // Use the final state after all changes
         );
       }
     });
@@ -2241,20 +2308,42 @@ document.addEventListener("DOMContentLoaded", function () {
       return window.currentState || null;
     }
     
-    // If no changes tracked, return original
-    if (!window.allChanges || window.allChanges.length === 0) {
-      return window.originalJson;
-    }
-    
     // Deep copy original
     let current = JSON.parse(JSON.stringify(window.originalJson));
     
-    // Apply all accepted changes
-    window.allChanges.forEach(change => {
-      if (change.accepted && change.path && change.fieldName) {
-        applyChangeToState(change, current);
+    // Get all accepted changes from history (across all rules)
+    const history = window.changeHistory || [];
+    const acceptedHistoryItems = history.filter(h => h.action === 'accepted');
+    
+    // If we have accepted changes in history, use the most recent complete state
+    if (acceptedHistoryItems.length > 0) {
+      // Find the most recent accepted change that has completeAfterJson
+      for (let i = acceptedHistoryItems.length - 1; i >= 0; i--) {
+        const item = acceptedHistoryItems[i];
+        if (item.completeAfterJson) {
+          // Use the complete JSON from the most recent accepted change
+          current = JSON.parse(JSON.stringify(item.completeAfterJson));
+          break;
+        }
       }
-    });
+      
+      // If no completeAfterJson found, try to apply changes from allChanges
+      // This handles cases where we're still in the current rule
+      if (window.allChanges && window.allChanges.length > 0) {
+        window.allChanges.forEach(change => {
+          if (change.accepted && change.path && change.fieldName) {
+            applyChangeToState(change, current);
+          }
+        });
+      }
+    } else if (window.allChanges && window.allChanges.length > 0) {
+      // Fallback: apply changes from current rule's allChanges
+      window.allChanges.forEach(change => {
+        if (change.accepted && change.path && change.fieldName) {
+          applyChangeToState(change, current);
+        }
+      });
+    }
     
     // Update global current state
     window.currentState = current;
@@ -2324,87 +2413,305 @@ document.addEventListener("DOMContentLoaded", function () {
   window.rejectChanges = function() {
     console.log("REJECT button clicked");
     
-    if (!window.currentStepState) {
+    // Check if we're in the new step-by-step workflow
+    if (window.currentChange && window.stepByStepState) {
+      const change = window.currentChange;
+      
+      // Skip this rule by adding it to skipRules
+      if (!window.stepByStepState.skipRules.includes(change.ruleId)) {
+        window.stepByStepState.skipRules.push(change.ruleId);
+      }
+      
+      // Add to rejected changes
+      window.stepByStepState.rejectedChanges.push({
+        ruleId: change.ruleId,
+        ruleName: change.ruleName,
+        before: change.before,
+        after: change.after
+      });
+      
+      // Update counters
+      if (window.rejectedCount === undefined) window.rejectedCount = 0;
+      window.rejectedCount++;
+      const rejEl = document.getElementById('rejectedCount');
+      if (rejEl) rejEl.textContent = String(window.rejectedCount);
+      
+      // Get next change
+      window.getNextChangeForReview();
+      return;
+    }
+    
+    // Old workflow: use window.currentRule
+    if (!window.currentRule || window.currentRule === null) {
       alert("No pending change to reject.");
       return;
     }
     
-    const stepState = window.currentStepState;
-    const state = currentProcessingState;
-    
-    // Skip this specific path
-    state.skipRules.push(stepState.path);
-    
-    // Add to change history
-    if (typeof addToChangeHistory === 'function') {
-      addToChangeHistory(
-        stepState.ruleIndex + 1,
-        'rejected',
-        stepState.beforeFragment,
-        stepState.afterFragment,
-        state.currentData
-      );
+    // Skip this rule
+    if (!window.skipRules) window.skipRules = [];
+    if (!window.skipRules.includes(window.currentRule)) {
+      window.skipRules.push(window.currentRule);
     }
     
-    // Update counters (use global window variables)
-    window.rejectedCount += 1;
-    if (window.pendingCount > 0) window.pendingCount -= 1;
+    // Update counters
+    if (window.rejectedCount === undefined) window.rejectedCount = 0;
+    window.rejectedCount++;
+    if (window.pendingCount > 0) window.pendingCount--;
     const rejEl = document.getElementById('rejectedCount');
     const penEl = document.getElementById('pendingCount');
     if (rejEl) rejEl.textContent = String(window.rejectedCount);
     if (penEl) penEl.textContent = String(window.pendingCount);
     
-    // Process next step
-    showLoading("Finding next change...");
-    setTimeout(() => {
-      processNextStep();
-    }, 100);
+    // Get next change using old workflow
+    const currentData = window.complete_before_data || window.lastCleanedJson || window.originalJson;
+    window.showLoading("Finding next change...");
+    fetch("/api/get-next-change", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        current_data: currentData,
+        skip_rules: window.skipRules || []
+      })
+    })
+      .then(response => response.json())
+      .then(data => {
+        window.hideLoading();
+        
+        if (!data.BEFORE || !data.AFTER || data.CURRENT_RULE === null) {
+          // No more changes
+          window.showReviewComplete();
+          return;
+        }
+        
+        // Update state
+        window.before = data.BEFORE;
+        window.after = data.AFTER;
+        window.before_full = data.Complete_before_data || currentData;
+        window.after_full = data.Complete_after_data;
+        window.currentRule = data.CURRENT_RULE;
+        window.complete_after_data = data.Complete_after_data;
+        window.complete_before_data = data.Complete_before_data;
+        
+        // Update UI with new change
+        const validationTabContent = document.getElementById('validation');
+        if (validationTabContent && window.createCodeCard) {
+          const codeCard = window.createCodeCard(
+            data.BEFORE,
+            data.AFTER,
+            data.Complete_before_data || currentData,
+            data.Complete_after_data || currentData
+          );
+          validationTabContent.innerHTML = "";
+          validationTabContent.appendChild(codeCard);
+        }
+      })
+      .catch(error => {
+        window.hideLoading();
+        console.error("Error getting next change:", error);
+        alert("Error getting next change: " + error.message);
+      });
   };
 
-  // Update the acceptChanges function for stepwise Phase 1 processing
+  // Update the acceptChanges function to work with both old and new workflows
   window.acceptChanges = function() {
     console.log("ACCEPT button clicked");
     
-    if (!window.currentStepState) {
+    // Check if we're in the new step-by-step workflow
+    if (window.currentChange && window.stepByStepState) {
+      const change = window.currentChange;
+      
+      // Apply the change by updating currentData
+      if (change.after_full) {
+        window.stepByStepState.currentData = JSON.parse(JSON.stringify(change.after_full));
+      }
+      
+      // Update final cleaned JSON
+      window.lastCleanedJson = window.stepByStepState.currentData;
+      window.currentState = JSON.parse(JSON.stringify(window.stepByStepState.currentData));
+      
+      // Add to change history (needed for computeCurrentStateFromAcceptedChanges)
+      if (typeof addToChangeHistory === 'function') {
+        addToChangeHistory(
+          change.ruleId,
+          'accepted',
+          change.before,
+          change.after,
+          window.lastCleanedJson // Complete JSON after this change
+        );
+      }
+      
+      // Add to accepted changes (for step-by-step state tracking)
+      window.stepByStepState.acceptedChanges.push({
+        ruleId: change.ruleId,
+        ruleName: change.ruleName,
+        before: change.before,
+        after: change.after
+      });
+      
+      // Update counters
+      if (window.approvedCount === undefined) window.approvedCount = 0;
+      window.approvedCount++;
+      const appEl = document.getElementById('approvedCount');
+      if (appEl) appEl.textContent = String(window.approvedCount);
+      
+      // Re-scan the current JSON to update issue counts in Step 2
+      const formData = new FormData();
+      const jsonBlob = new Blob([JSON.stringify(window.stepByStepState.currentData, null, 2)], { type: 'application/json' });
+      formData.append("file", jsonBlob, "current_state.json");
+      
+      fetch("/api/scan-issues", {
+        method: "POST",
+        body: formData,
+      })
+        .then(response => response.json())
+        .then(scanResult => {
+          if (scanResult && scanResult.issues) {
+            // Update issue summary in Step 2
+            window.displayIssueSummary(scanResult.issues);
+          }
+        })
+        .catch(error => {
+          console.error("Error re-scanning JSON:", error);
+        });
+      
+      window.updateDownloadCleanedButton();
+      
+      // Update Changes & Results
+      if (typeof updateChangesResultsTab === 'function') {
+        updateChangesResultsTab(window.originalJson, window.lastCleanedJson);
+      }
+      
+      // Get next change
+      window.getNextChangeForReview();
+      return;
+    }
+    
+    // Old workflow: use window.before, window.after, window.complete_after_data
+    if (!window.before || !window.after) {
       alert("No pending change to accept.");
       return;
     }
     
-    const stepState = window.currentStepState;
-    const state = currentProcessingState;
-    
     // Apply the change
-    state.currentData = JSON.parse(JSON.stringify(stepState.afterData));
+    const currentData = window.complete_after_data || window.lastCleanedJson || window.originalJson;
+    if (window.complete_after_data) {
+      window.lastCleanedJson = JSON.parse(JSON.stringify(window.complete_after_data));
+      window.currentState = window.lastCleanedJson;
+    }
     
-    // Add to change history
-    if (typeof addToChangeHistory === 'function') {
+    // Add to change history (needed for computeCurrentStateFromAcceptedChanges)
+    if (window.currentRule && typeof addToChangeHistory === 'function') {
       addToChangeHistory(
-        stepState.ruleIndex + 1,
+        window.currentRule,
         'accepted',
-        stepState.beforeFragment,
-        stepState.afterFragment,
-        state.currentData
+        window.before,
+        window.after,
+        window.lastCleanedJson // Complete JSON after this change
       );
     }
     
-    // Update counters (use global window variables)
-    window.approvedCount += 1;
-    if (window.pendingCount > 0) window.pendingCount -= 1;
+    // Update counters
+    if (window.approvedCount === undefined) window.approvedCount = 0;
+    window.approvedCount++;
+    if (window.pendingCount > 0) window.pendingCount--;
     const appEl = document.getElementById('approvedCount');
     const penEl = document.getElementById('pendingCount');
     if (appEl) appEl.textContent = String(window.approvedCount);
     if (penEl) penEl.textContent = String(window.pendingCount);
     
-    // Update current state display
-    if (typeof updateCurrentStateDisplay === 'function') {
-      updateCurrentStateDisplay(state.currentData);
+    // Re-scan the current JSON to update issue counts in Step 2
+    if (window.lastCleanedJson) {
+      const formData = new FormData();
+      const jsonBlob = new Blob([JSON.stringify(window.lastCleanedJson, null, 2)], { type: 'application/json' });
+      formData.append("file", jsonBlob, "current_state.json");
+      
+      fetch("/api/scan-issues", {
+        method: "POST",
+        body: formData,
+      })
+        .then(response => response.json())
+        .then(scanResult => {
+          if (scanResult && scanResult.issues) {
+            // Update issue summary in Step 2
+            window.displayIssueSummary(scanResult.issues);
+          }
+        })
+        .catch(error => {
+          console.error("Error re-scanning JSON:", error);
+        });
     }
     
-    // Process next step
-    showLoading("Finding next change...");
-    setTimeout(() => {
-      processNextStep();
-    }, 100);
+    // Update download button
+    window.updateDownloadCleanedButton();
+    
+    // Update Changes & Results
+    if (typeof updateChangesResultsTab === 'function') {
+      updateChangesResultsTab(window.originalJson, window.lastCleanedJson);
+    }
+    
+    // Get next change using old workflow
+    if (window.currentRule !== null) {
+      // Add current rule to skipRules
+      if (!window.skipRules) window.skipRules = [];
+      if (!window.skipRules.includes(window.currentRule)) {
+        window.skipRules.push(window.currentRule);
+      }
+      
+      // Get next change
+      window.showLoading("Finding next change...");
+      fetch("/api/get-next-change", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          current_data: currentData,
+          skip_rules: window.skipRules || []
+        })
+      })
+        .then(response => response.json())
+        .then(data => {
+          window.hideLoading();
+          
+          if (!data.BEFORE || !data.AFTER || data.CURRENT_RULE === null) {
+            // No more changes
+            window.showReviewComplete();
+            return;
+          }
+          
+          // Update state
+          window.before = data.BEFORE;
+          window.after = data.AFTER;
+          window.before_full = data.Complete_before_data || currentData;
+          window.after_full = data.Complete_after_data;
+          window.currentRule = data.CURRENT_RULE;
+          window.complete_after_data = data.Complete_after_data;
+          window.complete_before_data = data.Complete_before_data;
+          
+          // Update UI with new change
+          const validationTabContent = document.getElementById('validation');
+          if (validationTabContent && window.createCodeCard) {
+            const codeCard = window.createCodeCard(
+              data.BEFORE,
+              data.AFTER,
+              data.Complete_before_data || currentData,
+              data.Complete_after_data || currentData
+            );
+            validationTabContent.innerHTML = "";
+            validationTabContent.appendChild(codeCard);
+          }
+        })
+        .catch(error => {
+          window.hideLoading();
+          console.error("Error getting next change:", error);
+          alert("Error getting next change: " + error.message);
+        });
+    } else {
+      // No more changes
+      window.showReviewComplete();
+    }
   };
 
   // Download Current State functionality
@@ -2442,7 +2749,7 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
     
-      const confirmed = confirm(
+    const confirmed = confirm(
       `This will automatically accept all remaining rules and download the final JSON.\n\n` +
       `Pending rules: ${window.pendingCount}\n` +
       `Rejected rules will be skipped.\n\n` +
@@ -2459,7 +2766,7 @@ document.addEventListener("DOMContentLoaded", function () {
     try {
       // Call backend to apply all rules except rejected ones
       // We send the original JSON and the list of rejected rules
-      const response = await fetch("http://localhost:5001/upload", {
+      const response = await fetch("/api/upload", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -2785,7 +3092,7 @@ document.addEventListener("DOMContentLoaded", function () {
       // Add boolean conversion mode to form data
       formData.append("boolean_conversion_mode", window.booleanConversionMode || "boolean");
       
-      fetch("http://localhost:5001/upload", {
+      fetch("/api/upload", {
         method: "POST",
         body: formData,
       })
@@ -2800,28 +3107,25 @@ document.addEventListener("DOMContentLoaded", function () {
           console.log("proceedWithCleaning: JSON isArray:", Array.isArray(jsonData["JSON"]));
           
           // Use same selectors as original code
-          const shellWrapper = document.querySelector(".shell-wrapper") || document.getElementById('shells');
           const validationTabContent = document.getElementById('validation');
           
           console.log("proceedWithCleaning: shellWrapper found:", !!shellWrapper);
           console.log("proceedWithCleaning: validationTabContent found:", !!validationTabContent);
           
-          if (!shellWrapper) {
-            console.error("shellWrapper not found!");
-            window.hideLoading();
-            alert("Error: Could not find Quick Clean tab element!");
-            return;
-          }
-          
-          // Clear existing content (like original)
-          console.log("proceedWithCleaning: Clearing shellWrapper...");
-          shellWrapper.innerHTML = "";
+          // For step-by-step review, we don't need shellWrapper
+          // It's only used for Quick Clean results
           
           // Store the cleaned JSON for download (like original)
+          // IMPORTANT: Always use jsonData["JSON"] which is the FULLY cleaned JSON (all rules applied)
+          // NOT jsonData["Complete_after_data"] which is only stepwise (one rule at a time)
           window.lastCleanedJson = jsonData["JSON"];
           window.keys = jsonData["KEYS"] || [];
           
+          // Update download button state
+          window.updateDownloadCleanedButton();
+          
           console.log("proceedWithCleaning: lastCleanedJson stored:", !!window.lastCleanedJson);
+          console.log("proceedWithCleaning: Using FULLY cleaned JSON (data.JSON), not Complete_after_data");
           console.log("proceedWithCleaning: keys:", window.keys);
           
           // Store stepwise data (like original Python workflow)
@@ -2886,77 +3190,28 @@ document.addEventListener("DOMContentLoaded", function () {
             console.error("proceedWithCleaning: Validation tab content element not found!");
           }
           
-          // Initialize Changes & Results tab
+          // Show rule validation section
+          const ruleValidationSection = document.getElementById('ruleValidationSection');
+          const processingOptionsSection = document.getElementById('processingOptionsSection');
+          
+          if (ruleValidationSection) {
+            ruleValidationSection.style.display = 'block';
+            if (processingOptionsSection) {
+              processingOptionsSection.style.display = 'none';
+            }
+            // Scroll to validation section
+            setTimeout(() => ruleValidationSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
+          }
+          
+          // Initialize Changes & Results section (Final Result)
           if (typeof updateChangesResultsTab === 'function') {
             updateChangesResultsTab(window.originalJson, jsonData["JSON"]);
           }
           
-          // Display cleaned JSON in Quick Clean tab (exactly like original)
-          console.log("proceedWithCleaning: Starting to display JSON...");
-          try {
-            if (Array.isArray(jsonData["JSON"])) {
-              console.log("proceedWithCleaning: Processing as array, length:", jsonData["JSON"].length);
-              jsonData["JSON"].forEach((item, index) => {
-                try {
-                  const originalItem = window.originalJson && Array.isArray(window.originalJson) ? window.originalJson[index] : null;
-                  console.log(`proceedWithCleaning: Creating card for item ${index}...`);
-                  const card = createShellCard(item, originalItem, window.keys);
-                  console.log(`proceedWithCleaning: Card created for item ${index}:`, card);
-                  shellWrapper.appendChild(card);
-                  console.log(`proceedWithCleaning: Card ${index} appended to shellWrapper`);
-                } catch (error) {
-                  console.error(`Error creating card for item ${index}:`, error);
-                  const errorCard = document.createElement("div");
-                  errorCard.className = "shell-card card p-3";
-                  errorCard.innerHTML = `<h5 class="card-title text-danger">Error processing item ${index}</h5>`;
-                  shellWrapper.appendChild(errorCard);
-                }
-              });
-              
-              // Download button is now inside the card header, no need for separate wrapper
-              console.log("proceedWithCleaning: Download button added for array");
-            } else if (typeof jsonData["JSON"] === "object" && jsonData["JSON"] !== null) {
-              console.log("proceedWithCleaning: Processing as object");
-              console.log("proceedWithCleaning: jsonData['JSON'] keys:", Object.keys(jsonData["JSON"]).slice(0, 5));
-              if (jsonData["JSON"]["users"] && jsonData["JSON"]["users"][0]) {
-                const firstUser = jsonData["JSON"]["users"][0];
-                console.log("proceedWithCleaning: First user keys:", Object.keys(firstUser).slice(0, 10));
-                console.log("proceedWithCleaning: Has 'description'?", 'description' in firstUser);
-                console.log("proceedWithCleaning: Has 'tags'?", 'tags' in firstUser);
-              }
-              console.log("proceedWithCleaning: Calling createShellCard...");
-              const card = createShellCard(jsonData["JSON"], window.originalJson, window.keys);
-              console.log("proceedWithCleaning: Card created:", card);
-              console.log("proceedWithCleaning: Card innerHTML length:", card.innerHTML ? card.innerHTML.length : 0);
-              console.log("proceedWithCleaning: Card innerHTML preview:", card.innerHTML.substring(0, 200));
-              shellWrapper.appendChild(card);
-              console.log("proceedWithCleaning: Card appended to shellWrapper");
-              console.log("proceedWithCleaning: shellWrapper children count:", shellWrapper.children.length);
-              console.log("proceedWithCleaning: shellWrapper innerHTML length:", shellWrapper.innerHTML.length);
-              console.log("proceedWithCleaning: shellWrapper computed style display:", window.getComputedStyle(shellWrapper).display);
-              console.log("proceedWithCleaning: shellWrapper computed style visibility:", window.getComputedStyle(shellWrapper).visibility);
-              console.log("proceedWithCleaning: shellWrapper classes:", shellWrapper.className);
-              console.log("proceedWithCleaning: Card computed style display:", window.getComputedStyle(card).display);
-              console.log("proceedWithCleaning: Card computed style visibility:", window.getComputedStyle(card).visibility);
-              
-              // Force tab to be visible (like original)
-              const shellsTabButton = document.getElementById('shells-tab');
-              if (shellsTabButton) {
-                const tab = new bootstrap.Tab(shellsTabButton);
-                tab.show();
-                console.log("proceedWithCleaning: Tab switched to Quick Clean");
-              }
-              
-              // Download button is now inside the card header, no need for separate wrapper
-              console.log("proceedWithCleaning: Download button added for object");
-            } else {
-              console.error("proceedWithCleaning: Unsupported JSON format:", typeof jsonData["JSON"], jsonData["JSON"]);
-              alert("Unsupported JSON format from server.");
-            }
-          } catch (error) {
-            console.error("Error displaying JSON data:", error);
-            console.error("Error stack:", error.stack);
-            alert("Error displaying the processed data: " + error.message);
+          // Show final result section
+          const finalResultSection = document.getElementById('finalResultSection');
+          if (finalResultSection) {
+            finalResultSection.style.display = 'block';
           }
           
           // Update issue summary to show all zeros after cleaning
@@ -2975,7 +3230,7 @@ document.addEventListener("DOMContentLoaded", function () {
             console.log("proceedWithCleaning: No rule change in upload response, calling /get-next-change as fallback");
             const dataToSend = window.complete_before_data || window.originalJson || jsonData["JSON"];
             
-            fetch("http://localhost:5001/get-next-change", {
+            fetch("/api/get-next-change", {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
@@ -3027,7 +3282,8 @@ document.addEventListener("DOMContentLoaded", function () {
   };
   
   // Remove specific issue type
-  window.removeSpecificIssue = function(ruleId) {
+  // Start step-by-step review for a specific rule
+  window.startStepByStepReview = function(ruleId = null) {
     if (!window.originalJson) {
       alert("No JSON data available. Please upload a file first.");
       return;
@@ -3041,21 +3297,293 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
     
+    // Initialize step-by-step state
+    window.stepByStepState = {
+      currentData: JSON.parse(JSON.stringify(currentJson)),
+      skipRules: ruleId ? [] : [], // If specific rule, don't skip any initially
+      targetRule: ruleId, // null means all rules
+      acceptedChanges: [],
+      rejectedChanges: []
+    };
+    
+    // Hide processing options and show validation section
+    const processingOptionsSection = document.getElementById('processingOptionsSection');
+    const ruleValidationSection = document.getElementById('ruleValidationSection');
+    
+    if (processingOptionsSection) {
+      processingOptionsSection.style.display = 'none';
+    }
+    
+    if (ruleValidationSection) {
+      ruleValidationSection.style.display = 'block';
+      setTimeout(() => ruleValidationSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
+    }
+    
+    // Start getting the first change
+    window.getNextChangeForReview();
+  };
+
+  // Get next change for step-by-step review
+  window.getNextChangeForReview = function() {
+    if (!window.stepByStepState) {
+      console.error("Step-by-step state not initialized");
+      return;
+    }
+    
+    window.showLoading("Finding next change...");
+    
+    // Build skip_rules: if we have a target rule, skip all others
+    let skipRules = [...window.stepByStepState.skipRules];
+    if (window.stepByStepState.targetRule) {
+      // Skip all rules except the target rule
+      for (let i = 1; i <= 7; i++) {
+        if (i !== window.stepByStepState.targetRule && !skipRules.includes(i)) {
+          skipRules.push(i);
+        }
+      }
+    }
+    
+    fetch("/api/get-next-change", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        current_data: window.stepByStepState.currentData,
+        skip_rules: skipRules
+      })
+    })
+      .then(response => response.json())
+      .then(data => {
+        window.hideLoading();
+        
+        if (!data.BEFORE || !data.AFTER || data.CURRENT_RULE === null) {
+          // No more changes
+          window.showReviewComplete();
+          return;
+        }
+        
+        // Store current change
+        window.currentChange = {
+          before: data.BEFORE,
+          after: data.AFTER,
+          before_full: data.Complete_before_data || window.stepByStepState.currentData,
+          after_full: data.Complete_after_data,
+          ruleId: data.CURRENT_RULE,
+          ruleName: window.getRuleName(data.CURRENT_RULE)
+        };
+        
+        // Display the change in validation section
+        const validationTabContent = document.getElementById('validation');
+        if (validationTabContent && window.createCodeCard) {
+          const codeCard = window.createCodeCard(
+            data.BEFORE,
+            data.AFTER,
+            data.Complete_before_data || window.stepByStepState.currentData,
+            data.Complete_after_data || window.stepByStepState.currentData
+          );
+          validationTabContent.innerHTML = "";
+          validationTabContent.appendChild(codeCard);
+        }
+      })
+      .catch(error => {
+        window.hideLoading();
+        console.error("Error getting next change:", error);
+        alert("Error getting next change: " + error.message);
+      });
+  };
+
+  // Show review complete message
+  window.showReviewComplete = function() {
+    const validationTabContent = document.getElementById('validation');
+    if (validationTabContent) {
+      validationTabContent.innerHTML = `
+        <div class="card shadow">
+          <div class="card-body text-center p-5">
+            <i class="bi bi-check-circle" style="font-size: 4rem; color: #22c55e; margin-bottom: 1rem;"></i>
+            <h3 class="mb-3">Review Complete!</h3>
+            <p class="text-muted mb-4">
+              All changes have been reviewed and applied.
+            </p>
+            <button class="btn btn-success" onclick="document.getElementById('ruleValidationSection').style.display='none';">
+              <i class="bi bi-check me-2"></i>Continue
+            </button>
+          </div>
+        </div>
+      `;
+    }
+  };
+
+  // Modified removeSpecificIssue to start step-by-step review
+  window.removeSpecificIssue = function(ruleId) {
+    window.startStepByStepReview(ruleId);
+  };
+
+  // Show review section after individual rule operation
+  window.showRuleReviewSection = function(ruleId, beforeJson, afterJson, issues) {
+    const ruleReviewSection = document.getElementById('ruleReviewSection');
+    const ruleReviewContent = document.getElementById('ruleReviewContent');
+    
+    if (!ruleReviewSection || !ruleReviewContent) {
+      console.error("Rule review section elements not found");
+      return;
+    }
+    
+    const ruleName = window.getRuleName(ruleId);
+    const beforeStr = JSON.stringify(beforeJson, null, 2);
+    const afterStr = JSON.stringify(afterJson, null, 2);
+    
+    // Calculate changes count
+    const beforeSize = beforeStr.length;
+    const afterSize = afterStr.length;
+    const sizeDiff = beforeSize - afterSize;
+    
+    // Create diff-like display
+    ruleReviewContent.innerHTML = `
+      <div class="mb-3">
+        <h5 class="text-warning">
+          <i class="bi bi-check-circle me-2"></i>Rule Applied: ${ruleName}
+        </h5>
+        <div class="alert alert-success">
+          <i class="bi bi-info-circle me-2"></i>
+          <strong>Changes Applied Successfully!</strong>
+          <div class="mt-2">
+            <span class="badge bg-primary">Before: ${(beforeSize / 1024).toFixed(2)} KB</span>
+            <span class="badge bg-success ms-2">After: ${(afterSize / 1024).toFixed(2)} KB</span>
+            ${sizeDiff > 0 ? `<span class="badge bg-info ms-2">Reduced by: ${(sizeDiff / 1024).toFixed(2)} KB</span>` : ''}
+          </div>
+        </div>
+      </div>
+      
+      <div class="resizable-container-two" style="height: 500px;">
+        <!-- Before Pane -->
+        <div class="resizable-pane-two left" style="width: 50%;">
+          <h6 class="text-danger p-2 m-0 bg-dark border-bottom">
+            <i class="bi bi-file-earmark-minus me-2"></i>Before (Original)
+          </h6>
+          <div class="diff-container bg-dark text-light p-2" style="height: calc(100% - 40px); overflow: auto; font-family: 'Courier New', monospace; font-size: 12px;">
+            <pre class="m-0"><code>${escapeHTML(beforeStr)}</code></pre>
+          </div>
+        </div>
+        
+        <div class="resizable-divider-two"></div>
+        
+        <!-- After Pane -->
+        <div class="resizable-pane-two right" style="width: 50%;">
+          <h6 class="text-success p-2 m-0 bg-dark border-bottom">
+            <i class="bi bi-file-earmark-check me-2"></i>After (Cleaned)
+          </h6>
+          <div class="diff-container bg-dark text-light p-2" style="height: calc(100% - 40px); overflow: auto; font-family: 'Courier New', monospace; font-size: 12px;">
+            <pre class="m-0"><code>${escapeHTML(afterStr)}</code></pre>
+          </div>
+        </div>
+      </div>
+      
+      <div class="mt-3 d-flex gap-2">
+        <button class="btn btn-success" onclick="document.getElementById('ruleReviewSection').style.display='none';">
+          <i class="bi bi-check-circle me-2"></i>Continue
+        </button>
+        <button class="btn btn-outline-secondary" onclick="copyJSONToClipboard(afterJson)">
+          <i class="bi bi-clipboard me-2"></i>Copy Cleaned JSON
+        </button>
+      </div>
+    `;
+    
+    // Initialize resizable panes
+    setTimeout(() => {
+      initializeTwoPaneResizable(ruleReviewSection);
+    }, 100);
+    
+    // Show the section and scroll to it
+    ruleReviewSection.style.display = 'block';
+    setTimeout(() => {
+      ruleReviewSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 100);
+  };
+
+  // Initialize two-pane resizable functionality
+  function initializeTwoPaneResizable(container) {
+    const divider = container.querySelector('.resizable-divider-two');
+    const panes = container.querySelectorAll('.resizable-pane-two');
+    const resizableContainer = container.querySelector('.resizable-container-two');
+    
+    if (!divider || panes.length !== 2 || !resizableContainer) {
+      return;
+    }
+    
+    let isResizing = false;
+    
+    divider.addEventListener('mousedown', (e) => {
+      isResizing = true;
+      document.body.style.cursor = 'col-resize';
+      e.preventDefault();
+    });
+    
+    document.addEventListener('mousemove', (e) => {
+      if (!isResizing) return;
+      
+      const containerRect = resizableContainer.getBoundingClientRect();
+      const newLeftWidth = ((e.clientX - containerRect.left) / containerRect.width) * 100;
+      
+      if (newLeftWidth > 10 && newLeftWidth < 90) {
+        panes[0].style.width = newLeftWidth + '%';
+        panes[1].style.width = (100 - newLeftWidth) + '%';
+      }
+    });
+    
+    document.addEventListener('mouseup', () => {
+      isResizing = false;
+      document.body.style.cursor = '';
+    });
+  };
+  
+  // Helper function to get rule name - make it global
+  window.getRuleName = function(ruleId) {
+    const ruleNames = {
+      1: "Empty Lists",
+      2: "Empty Strings",
+      3: "Null Values",
+      4: "Empty Objects",
+      5: "Duplicates",
+      6: "Boolean Conversion",
+      7: "Fix Language Codes"
+    };
+    return ruleNames[ruleId] || "Issue";
+  };
+  
+  // Function to apply boolean conversion with specific mode
+  window.applyBooleanConversion = async function(mode) {
+    if (!window.originalJson) {
+      alert("No JSON data available. Please upload a file first.");
+      return;
+    }
+    
+    // Set the conversion mode
+    window.booleanConversionMode = mode;
+    
+    // Get current JSON (use cleaned version if available, otherwise original)
+    const currentJson = window.lastCleanedJson || window.originalJson;
+    
+    if (!currentJson) {
+      alert("No JSON data available.");
+      return;
+    }
+    
     // Show loading
-    window.showLoading(`Removing ${window.getRuleName(ruleId)}...`);
+    window.showLoading(`Applying boolean conversion (${mode === 'boolean' ? 'true/false' : '"1"/"0"'})...`);
     
-    // Call backend to clean specific rule
-    console.log("Calling /clean-specific-rule with ruleId:", ruleId);
-    console.log("Current JSON keys:", Object.keys(currentJson || {}));
+    // Call backend to clean specific rule (Rule 6)
+    console.log("Calling /clean-specific-rule with ruleId: 6, mode:", mode);
     
-    fetch("http://localhost:5001/clean-specific-rule", {
+    fetch("/api/clean-specific-rule", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
         json_data: currentJson,
-        rule_id: ruleId
+        rule_id: 6,
+        boolean_conversion_mode: mode
       })
     })
       .then((response) => {
@@ -3065,7 +3593,7 @@ document.addEventListener("DOMContentLoaded", function () {
             console.error("Error response:", text);
             try {
               const err = JSON.parse(text);
-              throw new Error(err.error || "Failed to clean specific rule");
+              throw new Error(err.error || "Failed to apply boolean conversion");
             } catch (e) {
               throw new Error(`HTTP ${response.status}: ${text}`);
             }
@@ -3076,72 +3604,84 @@ document.addEventListener("DOMContentLoaded", function () {
       .then((result) => {
         window.hideLoading();
         
-        // Update the cleaned JSON
+        // Store before state for review
+        const beforeJson = JSON.parse(JSON.stringify(currentJson));
+        const afterJson = result.cleaned_json;
+        
+        // Update the cleaned JSON (but keep originalJson for reference)
         window.lastCleanedJson = result.cleaned_json;
-        window.originalJson = result.cleaned_json; // Update original to reflect changes
+        if (!window.originalJson) {
+          window.originalJson = result.cleaned_json;
+        }
+        window.currentState = result.cleaned_json;
+        
+        // Update download button state
+        window.updateDownloadCleanedButton();
+        
+        // Show review section with before/after comparison
+        showRuleReviewSection(6, beforeJson, afterJson, result.issues);
         
         // Update issue summary with new counts
         window.displayIssueSummary(result.issues);
         
-        // Refresh the cleaned JSON display
-        const shellWrapper = document.querySelector(".shell-wrapper");
-        if (shellWrapper && window.lastCleanedJson) {
-          shellWrapper.innerHTML = "";
-          if (Array.isArray(window.lastCleanedJson)) {
-            window.lastCleanedJson.forEach((item, index) => {
-              const originalItem = window.originalJson && Array.isArray(window.originalJson) ? window.originalJson[index] : null;
-              if (typeof window.createShellCard === 'function') {
-                const card = window.createShellCard(item, originalItem, window.keys || []);
-                shellWrapper.appendChild(card);
-              } else {
-                // Fallback: just display the JSON
-                const pre = document.createElement("pre");
-                pre.className = "json-code";
-                const code = document.createElement("code");
-                code.className = "language-json";
-                code.textContent = JSON.stringify(item, null, 2);
-                pre.appendChild(code);
-                shellWrapper.appendChild(pre);
+        // Update the JSON viewer to show cleaned JSON
+        const jsonViewer = document.getElementById('jsonViewer');
+        if (jsonViewer && window.lastCleanedJson) {
+          jsonViewer.textContent = JSON.stringify(window.lastCleanedJson, null, 2);
+        }
+        
+        // Update Changes & Results section with the fully cleaned JSON
+        if (typeof updateChangesResultsTab === 'function') {
+          updateChangesResultsTab(window.originalJson, window.lastCleanedJson);
+        }
+        
+        // Update the issue count badges in the uploaded JSON viewer card
+        const shellsTab = document.getElementById('shells');
+        if (shellsTab) {
+          const allDivs = shellsTab.querySelectorAll('.row > div');
+          allDivs.forEach(div => {
+            const strong = div.querySelector('strong');
+            if (strong) {
+              const strongText = strong.textContent;
+              const badge = div.querySelector('.badge');
+              
+              if (badge) {
+                if (strongText.includes('Empty Arrays')) {
+                  const count = result.issues.empty_lists || 0;
+                  badge.textContent = count;
+                  badge.className = count > 0 ? 'badge bg-warning' : 'badge bg-success';
+                } else if (strongText.includes('Empty Strings')) {
+                  const count = result.issues.empty_strings || 0;
+                  badge.textContent = count;
+                  badge.className = count > 0 ? 'badge bg-warning' : 'badge bg-success';
+                } else if (strongText.includes('Null Values')) {
+                  const count = result.issues.null_values || 0;
+                  badge.textContent = count;
+                  badge.className = count > 0 ? 'badge bg-warning' : 'badge bg-success';
+                } else if (strongText.includes('Empty Objects')) {
+                  const count = result.issues.empty_objects || 0;
+                  badge.textContent = count;
+                  badge.className = count > 0 ? 'badge bg-warning' : 'badge bg-success';
+                } else if (strongText.includes('Total Issues')) {
+                  const count = result.issues.total_issues || 0;
+                  badge.textContent = count;
+                  badge.className = count > 0 ? 'badge bg-danger' : 'badge bg-success';
+                }
               }
-            });
-          } else if (typeof window.lastCleanedJson === "object" && window.lastCleanedJson !== null) {
-            if (typeof window.createShellCard === 'function') {
-              const card = window.createShellCard(window.lastCleanedJson, window.originalJson, window.keys || []);
-              shellWrapper.appendChild(card);
-            } else {
-              // Fallback: just display the JSON
-              const pre = document.createElement("pre");
-              pre.className = "json-code";
-              const code = document.createElement("code");
-              code.className = "language-json";
-              code.textContent = JSON.stringify(window.lastCleanedJson, null, 2);
-              pre.appendChild(code);
-              shellWrapper.appendChild(pre);
             }
-          }
+          });
         }
       })
       .catch((error) => {
         window.hideLoading();
-        console.error("Error removing specific issue:", error);
+        console.error("Error applying boolean conversion:", error);
         console.error("Error stack:", error.stack);
-        let errorMessage = "Error removing issue: " + error.message;
+        let errorMessage = "Error applying boolean conversion: " + error.message;
         if (error.message.includes("Failed to fetch") || error.message.includes("NetworkError")) {
-          errorMessage += "\n\nPlease check:\n1. Backend is running on port 5001\n2. No CORS issues\n3. Browser console for more details";
+          errorMessage += "\n\nPlease check:\n1. Backend is running\n2. No CORS issues\n3. Browser console for more details";
         }
         alert(errorMessage);
       });
-  };
-  
-  // Helper function to get rule name - make it global
-  window.getRuleName = function(ruleId) {
-    const ruleNames = {
-      1: "Empty Lists",
-      2: "Empty Strings",
-      3: "Null Values",
-      4: "Empty Objects"
-    };
-    return ruleNames[ruleId] || "Issue";
   };
   
   // Clear upload
@@ -3158,11 +3698,20 @@ document.addEventListener("DOMContentLoaded", function () {
     if (issueSummary) issueSummary.style.display = 'none';
     if (resetButton) resetButton.style.display = 'none';
     
-    // Hide rule settings card when clearing
-    const ruleSettingsCard = document.getElementById('ruleSettingsCard');
-    if (ruleSettingsCard) {
-      ruleSettingsCard.style.display = 'none';
-    }
+    // Hide all workflow sections except upload
+    const scanResultsSection = document.getElementById('scanResultsSection');
+    const processingOptionsSection = document.getElementById('processingOptionsSection');
+    const ruleValidationSection = document.getElementById('ruleValidationSection');
+    const finalResultSection = document.getElementById('finalResultSection');
+    const quickCleanResultsSection = document.getElementById('quickCleanResultsSection');
+    const ruleStatsSection = document.getElementById('ruleStatsSection');
+    
+    if (scanResultsSection) scanResultsSection.style.display = 'none';
+    if (processingOptionsSection) processingOptionsSection.style.display = 'none';
+    if (ruleValidationSection) ruleValidationSection.style.display = 'none';
+    if (finalResultSection) finalResultSection.style.display = 'none';
+    if (quickCleanResultsSection) quickCleanResultsSection.style.display = 'none';
+    if (ruleStatsSection) ruleStatsSection.style.display = 'none';
     
     // Clear change history and state
     window.changeHistory = [];
@@ -3174,11 +3723,20 @@ document.addEventListener("DOMContentLoaded", function () {
     window.pendingCount = 0;
     window.approvedCount = 0;
     window.rejectedCount = 0;
+    window.lastCleanedJson = null;
     
-    // Clear Changes & Results tab
+    // Clear content sections
     const changesResultsWrapper = document.querySelector('.changes-results-wrapper');
     if (changesResultsWrapper) {
       changesResultsWrapper.innerHTML = '';
+    }
+    const validationContent = document.getElementById('validation');
+    if (validationContent) {
+      validationContent.innerHTML = '';
+    }
+    const shellsContent = document.getElementById('shells');
+    if (shellsContent) {
+      shellsContent.innerHTML = '';
     }
   };
   
@@ -3206,14 +3764,14 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     };
     reader.readAsText(file);
-
+    
     const formData = new FormData();
     formData.append("file", file);
 
     // Show simple loading overlay
     showLoading("Processing JSON file...");
 
-    fetch("http://localhost:5001/upload", {
+    fetch("/api/upload", {
       method: "POST",
       body: formData,
     })
@@ -3230,6 +3788,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
         // Store the cleaned JSON for download
         window.lastCleanedJson = jsonData["JSON"];
+
+        // Update download button state
+        window.updateDownloadCleanedButton();
 
         // Store the applied Keys
         keys = jsonData["KEYS"] || [];
@@ -3261,7 +3822,8 @@ document.addEventListener("DOMContentLoaded", function () {
   window.displayUploadedJSON = function(jsonData, filename) {
     console.log("displayUploadedJSON called with filename:", filename);
     const shellsTab = document.getElementById('shells');
-    console.log("shellsTab element:", shellsTab);
+    const uploadedJsonSection = document.getElementById('uploadedJsonSection');
+    
     if (!shellsTab) {
       console.error("shellsTab element not found!");
       return;
@@ -3278,8 +3840,9 @@ document.addEventListener("DOMContentLoaded", function () {
     const emptyObjectCount = countEmptyObjects(jsonData);
     const totalIssues = emptyArrayCount + emptyStringCount + nullValueCount + emptyObjectCount;
     
+    // Display JSON with file info and issue badges (original design) - full width
     shellsTab.innerHTML = `
-      <div class="card bg-dark text-light mb-3">
+      <div class="card bg-dark text-light mb-3" style="width: 100%;">
         <div class="card-header bg-primary">
           <h5 class="mb-0">
             <i class="bi bi-file-earmark-json me-2"></i>Uploaded JSON: ${escapeHTML(filename)}
@@ -3323,27 +3886,30 @@ document.addEventListener("DOMContentLoaded", function () {
             <button class="btn btn-success" onclick="quickClean()">
               <i class="bi bi-magic me-2"></i>Clean JSON
             </button>
-            <button class="btn btn-outline-info" onclick="copyJSONToClipboard(originalJson)">
+            <button class="btn btn-outline-info" onclick="copyJSONToClipboard(window.originalJson)">
               <i class="bi bi-clipboard me-2"></i>Copy JSON
             </button>
-            <button class="btn btn-outline-secondary" onclick="downloadJSON(originalJson, originalFilename)">
+            <button class="btn btn-outline-secondary" onclick="downloadJSON(window.originalJson, window.originalFilename)">
               <i class="bi bi-download me-2"></i>Download Original
+            </button>
+            <button class="btn btn-outline-success" onclick="downloadCleanedJSON()" id="downloadCleanedBtnInCard" ${window.lastCleanedJson ? '' : 'disabled'} title="${window.lastCleanedJson ? 'Download the cleaned/edited JSON file' : 'No cleaned JSON available yet. Please clean the file first.'}">
+              <i class="bi bi-download me-2"></i>Download Cleaned JSON
             </button>
           </div>
         </div>
       </div>
     `;
     
-    // Switch to Quick Clean tab
-    const shellsTabButton = document.getElementById('shells-tab');
-    console.log("shellsTabButton:", shellsTabButton);
-    if (shellsTabButton) {
-      // Use Bootstrap's tab API to switch tabs
-      const tab = new bootstrap.Tab(shellsTabButton);
-      tab.show();
-      console.log("Tab switched to Quick Clean");
-    } else {
-      console.error("shellsTabButton not found!");
+    // Show uploaded JSON section
+    if (uploadedJsonSection) {
+      uploadedJsonSection.style.display = 'block';
+      setTimeout(() => uploadedJsonSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
+    }
+    
+    // Show final result section
+    const finalResultSection = document.getElementById('finalResultSection');
+    if (finalResultSection) {
+      finalResultSection.style.display = 'block';
     }
   };
 
@@ -3713,56 +4279,31 @@ document.addEventListener("DOMContentLoaded", function () {
     // Update Rule Validation tab
     updateRuleValidationTab(change.beforeFragment, change.afterFragment, {});
     
-    // Switch to Rule Validation tab
-    const validationTabButton = document.getElementById('validation-tab');
-    if (validationTabButton) {
-      const tab = new bootstrap.Tab(validationTabButton);
-      tab.show();
+    // Show rule validation section
+    const ruleValidationSection = document.getElementById('ruleValidationSection');
+    const processingOptionsSection = document.getElementById('processingOptionsSection');
+    
+    if (ruleValidationSection) {
+      ruleValidationSection.style.display = 'block';
+      if (processingOptionsSection) {
+        processingOptionsSection.style.display = 'none';
+      }
+      // Scroll to validation section
+      setTimeout(() => ruleValidationSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
     }
     
     hideLoading();
   }
 
-  // Quick Clean function - starts stepwise processing
-  window.quickClean = async function() {
+  // Quick Clean function - starts step-by-step review for all rules
+  window.quickClean = function() {
     if (!window.originalJson) {
       alert("Please upload a JSON file first!");
       return;
     }
     
-    // Get all checkbox states
-    const removeEmptyLists = document.getElementById('removeEmptyListsCheck').checked;
-    const removeEmptyStrings = document.getElementById('removeEmptyStringsCheck').checked;
-    const removeNullValues = document.getElementById('removeNullValuesCheck').checked;
-    const removeEmptyObjects = document.getElementById('removeEmptyObjectsCheck').checked;
-    
-    // Check if at least one rule is enabled
-    if (!removeEmptyLists && !removeEmptyStrings && !removeNullValues && !removeEmptyObjects) {
-      alert("Please enable at least one cleaning option!");
-      return;
-    }
-    
-    // Build enabled rules list
-    const enabledRules = [];
-    if (removeEmptyLists) enabledRules.push({ type: 'empty_array', name: 'Remove empty lists', id: 1 });
-    if (removeEmptyStrings) enabledRules.push({ type: 'empty_string', name: 'Remove empty strings', id: 2 });
-    if (removeNullValues) enabledRules.push({ type: 'null_value', name: 'Remove null values', id: 3 });
-    if (removeEmptyObjects) enabledRules.push({ type: 'empty_object', name: 'Remove empty objects', id: 4 });
-    
-    // Initialize processing state
-    currentProcessingState = {
-      currentData: JSON.parse(JSON.stringify(window.originalJson)),
-      enabledRules: enabledRules,
-      currentRuleIndex: 0,
-      skipRules: []
-    };
-    
-    showLoading("Finding first change...");
-    
-    // Start stepwise processing
-    setTimeout(() => {
-      processNextStep();
-    }, 100);
+    // Start step-by-step review for all rules (no specific ruleId)
+    window.startStepByStepReview(null);
   };
 
   // Update Rule Validation tab with before/after comparison
@@ -3803,11 +4344,11 @@ document.addEventListener("DOMContentLoaded", function () {
       console.error("Error updating Rule Validation tab:", error);
       if (validationTabContent) {
         validationTabContent.innerHTML = `
-          <div class="alert alert-warning">
-            <h5>Error displaying validation</h5>
-            <p>${error.message}</p>
-          </div>
-        `;
+        <div class="alert alert-warning">
+          <h5>Error displaying validation</h5>
+          <p>${error.message}</p>
+        </div>
+      `;
       }
     }
   }
@@ -3821,17 +4362,35 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     
     try {
-      // Get current state (with accepted changes applied)
+      // Get current state (with all accepted changes applied) - for middle pane
       const currentState = computeCurrentStateFromAcceptedChanges() || window.originalJson;
-      const finalCleaned = cleanedData || window.lastCleanedJson || currentState;
+      
+      // Final cleaned JSON should ALWAYS be the fully cleaned JSON with all rules applied
+      // This is from the backend's full cleaning process (window.lastCleanedJson)
+      const finalCleaned = window.lastCleanedJson || cleanedData || currentState;
       const original = originalData || window.originalJson;
       
       if (!original) return;
       
-      // Update the three-pane view if it exists
+      // Update the two-pane view if it exists
       const currentStateContent = document.getElementById('currentStateContent');
       if (currentStateContent) {
         currentStateContent.innerHTML = `<pre class="m-0"><code>${escapeHTML(JSON.stringify(currentState, null, 2))}</code></pre>`;
+      }
+      
+      // Update accepted count in the header
+      const history = window.changeHistory || [];
+      const acceptedRules = new Set();
+      history.forEach(h => {
+        if (h.action === 'accepted') {
+          acceptedRules.add(h.ruleNumber);
+        }
+      });
+      const acceptedRulesCount = acceptedRules.size;
+      const acceptedChangesCount = history.filter(h => h.action === 'accepted').length;
+      const acceptedCountHeader = document.querySelector('#changes-results .resizable-pane-two.right h6');
+      if (acceptedCountHeader) {
+        acceptedCountHeader.innerHTML = `<i class="bi bi-file-code me-2"></i>Current State (${acceptedRulesCount} rules, ${acceptedChangesCount} changes accepted)`;
       }
       
       // Update history display
@@ -3841,19 +4400,19 @@ document.addEventListener("DOMContentLoaded", function () {
       
       // If the Changes & Results card doesn't exist yet, create it
       if (!changesResultsTab.querySelector('.code-card')) {
-        const changesCard = createChangesResultsCard(finalCleaned, original, []);
+        const changesCard = createChangesResultsCard(currentState, original, []);
         changesResultsTab.innerHTML = '';
         changesResultsTab.appendChild(changesCard);
       }
     } catch (error) {
       console.error("Error updating Changes & Results tab:", error);
       if (changesResultsTab) {
-        changesResultsTab.innerHTML = `
-          <div class="alert alert-warning">
-            <h5>Error displaying changes</h5>
-            <p>${error.message}</p>
-          </div>
-        `;
+      changesResultsTab.innerHTML = `
+        <div class="alert alert-warning">
+          <h5>Error displaying changes</h5>
+          <p>${error.message}</p>
+        </div>
+      `;
       }
     }
   }
@@ -4041,31 +4600,9 @@ document.addEventListener("DOMContentLoaded", function () {
         </div>
       `;
       
-      // Switch to Quick Clean tab
-      const shellsTabButton = document.getElementById('shells-tab');
-      if (shellsTabButton) {
-        const tab = new bootstrap.Tab(shellsTabButton);
-        tab.show();
-      }
+      // No need to switch tabs in single-page layout
     }
   }
-
-  // Helper functions to switch tabs
-  window.switchToValidationTab = function() {
-    const validationTabButton = document.getElementById('validation-tab');
-    if (validationTabButton) {
-      const tab = new bootstrap.Tab(validationTabButton);
-      tab.show();
-    }
-  };
-
-  window.switchToChangesTab = function() {
-    const changesTabButton = document.getElementById('changes-results-tab');
-    if (changesTabButton) {
-      const tab = new bootstrap.Tab(changesTabButton);
-      tab.show();
-    }
-  };
 
   // Copy cleaned JSON to clipboard
   window.copyToClipboard = function() {

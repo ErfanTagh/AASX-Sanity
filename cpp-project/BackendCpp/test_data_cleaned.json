@@ -1,0 +1,63 @@
+{
+  "assetAdministrationShells": [
+    {
+      "boolean_string_0": false,
+      "boolean_string_1": true,
+      "boolean_string_false": false,
+      "boolean_string_true": true,
+      "boolean_string_yes": true,
+      "duplicate_array": [
+        {
+          "id": 1,
+          "name": "item1"
+        },
+        {
+          "id": 2,
+          "name": "item2"
+        },
+        {
+          "id": 3,
+          "name": "item3"
+        }
+      ],
+      "id": "shell1",
+      "idShort": "Shell1",
+      "language_code_bad": "en?",
+      "nested_object": {
+        "another_nested": {
+          "valid": true
+        },
+        "language": "de",
+        "valid_nested": "nested value"
+      },
+      "submodels": [
+        {
+          "id": "submodel1",
+          "valid_data": "submodel data"
+        },
+        {
+          "boolean_string": true,
+          "id": "submodel2",
+          "language_code": "fr?"
+        }
+      ],
+      "valid_field": "This is a valid field"
+    },
+    {
+      "id": "shell2",
+      "mixed_array": [
+        null,
+        "",
+        {},
+        [],
+        "valid_item",
+        123
+      ],
+      "valid_field": "Shell 2 data"
+    }
+  ],
+  "metadata": {
+    "version": "1.0"
+  },
+  "top_level_valid": "This should remain"
+}

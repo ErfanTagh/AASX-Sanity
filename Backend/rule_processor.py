@@ -38,8 +38,8 @@ def rule_2_remove_empty_strings(obj):
     Checks all keys in the object and removes any that have empty or whitespace-only string values.
     """
     if not isinstance(obj, dict):
-        return obj, False
-    
+    return obj, False
+
     keys_to_delete = []
     for key, value in obj.items():
         if isinstance(value, str) and value.strip() == "":
@@ -56,8 +56,8 @@ def rule_3_remove_null_values(obj):
     Checks all keys in the object and removes any that have None/null values.
     """
     if not isinstance(obj, dict):
-        return obj, False
-    
+    return obj, False
+
     keys_to_delete = []
     for key, value in obj.items():
         if value is None:
@@ -74,8 +74,8 @@ def rule_4_remove_empty_objects(obj):
     Checks all keys in the object and removes any that have empty dictionary values.
     """
     if not isinstance(obj, dict):
-        return obj, False
-    
+    return obj, False
+
     keys_to_delete = []
     for key, value in obj.items():
         if isinstance(value, dict) and len(value) == 0:
@@ -83,7 +83,7 @@ def rule_4_remove_empty_objects(obj):
     
     if keys_to_delete:
         obj = del_key(obj, keys_to_delete)
-        return obj, True
+            return obj, True
     return obj, False
 
 # =============================================================================
