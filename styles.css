@@ -7,20 +7,129 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 1rem;
+  width: 100%;
+}
+
+.shell-wrapper > .card {
+  width: 100%;
+  max-width: 100%;
 }
 
 .shell-card {
   flex: 0 0 100%; /* 2 per row */
-  background-color: #1e293b;
-  border: 1px solid #0ea5e9;
-  color: red;
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(22, 163, 74, 0.1) 100%);
+  border: 2px solid #22c55e;
+  border-radius: 10px;
   min-width: 250px;
+  box-shadow: 0 4px 20px rgba(34, 197, 94, 0.2);
+  color: #e5e7eb; /* Light gray text - no red! */
+  padding: 1.5rem !important;
+  animation: slideIn 0.3s ease;
+  transition: all 0.3s ease;
+}
+
+.shell-card:hover {
+  box-shadow: 0 6px 30px rgba(34, 197, 94, 0.3);
+  transform: translateY(-2px);
+  border-color: #16a34a;
+}
+
+.shell-card * {
+  color: inherit; /* Inherit from shell-card */
+}
+
+.shell-card .card-title {
+  color: #fb923c !important; /* Orange for title */
+  font-weight: 600;
+}
+
+.shell-card .text-muted {
+  color: #cbd5e1 !important; /* Lighter gray for better visibility */
+}
+
+.shell-card .text-info {
+  color: #0ea5e9 !important; /* Blue for info */
+}
+
+.shell-card .text-success {
+  color: #22c55e !important; /* Green for success */
+}
+
+.shell-card .alert {
+  color: #e5e7eb !important; /* Light text for alerts */
+  background-color: rgba(14, 165, 233, 0.1) !important;
+  border-color: #0ea5e9 !important;
+}
+
+.shell-card .alert-success {
+  color: #d1fae5 !important; /* Light green text */
+  background-color: rgba(34, 197, 94, 0.15) !important;
+  border-color: #22c55e !important;
+}
+
+.shell-card .alert-info {
+  color: #dbeafe !important; /* Light blue text */
+  background-color: rgba(14, 165, 233, 0.15) !important;
+  border-color: #0ea5e9 !important;
+}
+
+.shell-card h6 {
+  color: #22c55e !important; /* Green for headings */
+  font-weight: 600;
+}
+
+.shell-card small {
+  color: #94a3b8 !important; /* Muted gray for small text */
+}
+
+.shell-card .text-success {
+  color: #22c55e !important; /* Green for success */
 }
 
 .shell-card pre {
   border: 1px solid #334155;
   border-radius: 4px;
 }
+
+/* JSON Display Container - Beautiful formatting matching upload UI */
+.json-display-container {
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%);
+  border: 2px solid #0ea5e9;
+  border-radius: 10px;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(14, 165, 233, 0.2);
+  margin-top: 1rem;
+}
+
+.json-code {
+  margin: 0;
+  padding: 1.5rem;
+  background-color: #0f172a;
+  color: #22c55e; /* Green text for JSON */
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 600px;
+  white-space: pre;
+  word-wrap: normal;
+}
+
+.json-code code {
+  color: #22c55e; /* Green text */
+  background: transparent;
+  padding: 0;
+  font-size: inherit;
+  font-family: inherit;
+}
+
+/* JSON syntax highlighting colors */
+.json-code code .string { color: #86efac; } /* Lighter green for strings */
+.json-code code .number { color: #60a5fa; } /* Blue for numbers */
+.json-code code .boolean { color: #fbbf24; } /* Yellow for booleans */
+.json-code code .null { color: #f87171; } /* Red for null */
 
 .card-title {
   color: #fb923c;
@@ -171,11 +280,45 @@ body {
   /* Download Button Container */
   .download-btn-container {
     display: flex;
-    justify-content: center;
+    justify-content: flex-end;
     align-items: center;
-    margin-top: 2rem;
-    margin-bottom: 1rem;
+    margin-top: 1rem;
+    margin-bottom: 2rem;
     padding: 1.5rem 0;
+  }
+
+  /* Rules wrapper styling to match upload UI */
+  .shell-card .rules-wrapper {
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 41, 59, 0.8) 100%);
+    border: 2px solid #0ea5e9;
+    border-radius: 10px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 10px rgba(14, 165, 233, 0.15);
+  }
+
+  .shell-card .rules-wrapper h6 {
+    color: #22c55e !important;
+    margin-bottom: 1rem;
+    font-weight: 600;
+    font-size: 1.1rem;
+  }
+
+  /* Sticky download button at top right */
+  .sticky-download {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.95) 0%, rgba(15, 23, 42, 0.85) 100%);
+    backdrop-filter: blur(10px);
+    padding: 1.5rem 0;
+    margin-top: 0 !important;
+    margin-bottom: 2rem !important;
+    border-bottom: 2px solid #22c55e;
+    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.2);
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
   }
 
   .download-cleaned-btn {
@@ -189,6 +332,23 @@ body {
     transition: all 0.3s ease;
     border-radius: 0.5rem;
     text-transform: uppercase;
+  }
+
+  .download-cleaned-btn-inline {
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+    border: none;
+    padding: 0.5rem 1.25rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(34, 197, 94, 0.3);
+    transition: all 0.3s ease;
+    border-radius: 0.5rem;
+  }
+
+  .download-cleaned-btn-inline:hover {
+    background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.5);
+    transform: translateY(-1px);
   }
 
   .download-cleaned-btn:hover:not(:disabled) {
@@ -743,6 +903,53 @@ body.resizing * {
   background-color: #0284c7;
 }
 
+/* Two-pane resizable for rule review */
+.resizable-container-two {
+  display: flex;
+  flex-direction: row;
+  height: 500px;
+  position: relative;
+  width: 100%;
+  border: 1px solid #475569;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.resizable-pane-two {
+  overflow: hidden;
+  position: relative;
+  background-color: #1f2937;
+  display: flex;
+  flex-direction: column;
+}
+
+.resizable-pane-two.left {
+  flex: 1 1 50%;
+  min-width: 150px;
+}
+
+.resizable-pane-two.right {
+  flex: 1 1 50%;
+  min-width: 150px;
+}
+
+.resizable-divider-two {
+  width: 8px;
+  background-color: #475569;
+  cursor: col-resize;
+  position: relative;
+  flex-shrink: 0;
+  transition: background-color 0.2s;
+}
+
+.resizable-divider-two:hover {
+  background-color: #0ea5e9;
+}
+
+.resizable-divider-two:active {
+  background-color: #0284c7;
+}
+
 /* Visual indicator on hover for three-pane dividers */
 .resizable-divider-three::before {
   content: '';
@@ -798,4 +1005,281 @@ body.resizing * {
 
 .spinner-border {
   border-width: 0.3rem;
+}
+
+/* Upload Area Styles */
+.upload-card {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border: 2px solid #334155;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s ease;
+}
+
+.upload-card:hover {
+  border-color: #0ea5e9;
+  box-shadow: 0 6px 30px rgba(14, 165, 233, 0.2);
+}
+
+.upload-header {
+  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+  border-bottom: 2px solid #0284c7;
+  color: white;
+  font-weight: 600;
+  padding: 1rem 1.25rem;
+}
+
+.upload-area {
+  border: 3px dashed #475569;
+  border-radius: 12px;
+  padding: 3rem 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.05) 0%, rgba(2, 132, 199, 0.05) 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.upload-area::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(14, 165, 233, 0.1), transparent);
+  transition: left 0.5s;
+}
+
+.upload-area:hover {
+  border-color: #0ea5e9;
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.1) 0%, rgba(2, 132, 199, 0.1) 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(14, 165, 233, 0.15);
+}
+
+.upload-area:hover::before {
+  left: 100%;
+}
+
+.upload-area.dragover {
+  border-color: #22c55e;
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, rgba(22, 163, 74, 0.15) 100%);
+  transform: scale(1.02);
+}
+
+.upload-content {
+  position: relative;
+  z-index: 1;
+}
+
+.upload-icon {
+  font-size: 4rem;
+  color: #0ea5e9;
+  margin-bottom: 1rem;
+  display: block;
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+.upload-title {
+  color: #f1f5f9;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.upload-subtitle {
+  color: #94a3b8;
+  font-size: 0.95rem;
+  margin-bottom: 0.5rem;
+}
+
+.upload-hint {
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.uploaded-file-display {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.1) 0%, rgba(2, 132, 199, 0.1) 100%);
+  border: 2px solid #0ea5e9;
+  border-radius: 10px;
+  padding: 1rem;
+  margin-top: 1rem;
+  animation: slideIn 0.3s ease;
+}
+
+.uploaded-file-display #fileNameText {
+  color: #f1f5f9 !important;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.uploaded-file-display small {
+  color: #0ea5e9 !important;
+  font-size: 0.875rem;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Issue Summary Styles */
+.issue-summary {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(22, 163, 74, 0.1) 100%);
+  border: 2px solid #22c55e;
+  border-radius: 10px;
+  padding: 1.25rem;
+  margin-top: 1rem;
+  animation: slideIn 0.3s ease;
+}
+
+.issue-summary-header {
+  color: #f1f5f9;
+  font-weight: 600;
+  font-size: 1.1rem;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+}
+
+.issue-counts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.5rem;
+}
+
+.issue-count-item {
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.issue-count-item:hover {
+  border-color: #0ea5e9;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.2);
+}
+
+.issue-count-item.has-issues {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.issue-count-number {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0ea5e9;
+  display: block;
+  margin-bottom: 0.15rem;
+}
+
+.issue-count-item.has-issues .issue-count-number {
+  color: #f59e0b;
+}
+
+.issue-count-label {
+  font-size: 0.7rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.25rem;
+}
+
+.issue-count-item.has-issues .issue-count-label {
+  color: #fbbf24;
+}
+
+.remove-issue-btn {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  border: none;
+  color: white;
+  font-weight: 600;
+  padding: 0.5rem;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.3);
+}
+
+.remove-issue-btn:hover {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.5);
+  transform: translateY(-1px);
+}
+
+.remove-issue-btn:active {
+  transform: translateY(0);
+}
+
+.no-issues-message {
+  text-align: center;
+  padding: 2rem;
+  color: #22c55e;
+}
+
+.no-issues-message i {
+  font-size: 3rem;
+  display: block;
+  margin-bottom: 1rem;
+}
+
+/* Purple outline button for boolean conversion */
+.btn-outline-purple {
+  border-color: #8b5cf6 !important;
+  color: #8b5cf6 !important;
+  background-color: transparent !important;
+}
+
+.btn-outline-purple:hover,
+.btn-outline-purple:focus {
+  background-color: rgba(139, 92, 246, 0.1) !important;
+  border-color: #8b5cf6 !important;
+  color: #8b5cf6 !important;
+}
+
+.btn-check:checked + .btn-outline-purple,
+.btn-check:active + .btn-outline-purple {
+  background-color: #8b5cf6 !important;
+  border-color: #8b5cf6 !important;
+  color: white !important;
+}
+
+/* Single-page workflow sections */
+.workflow-section {
+  animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.workflow-section .card {
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s ease;
+}
+
+.workflow-section .card:hover {
+  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.4);
+  transform: translateY(-2px);
 }

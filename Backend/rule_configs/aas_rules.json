@@ -1,0 +1,249 @@
+[
+  {
+    "id": 1,
+    "name": "Remove empty lists",
+    "category": "meta-model",
+    "type": "remove_if_empty",
+    "keys": [
+      "qualifiers",
+      "embeddedDataSpecifications",
+      "displayName",
+      "statements",
+      "description",
+      "extensions",
+      "supplementalSemanticIds",
+      "shortName"
+    ],
+    "empty_type": "list"
+  },
+  {
+    "id": 2,
+    "name": "Remove empty semanticId",
+    "category": "meta-model",
+    "type": "remove_if_empty",
+    "path": "semanticId.keys",
+    "empty_type": "list"
+  },
+  {
+    "id": 3,
+    "name": "Remove empty valueId",
+    "category": "meta-model",
+    "type": "remove_if_empty",
+    "path": "valueId.keys",
+    "empty_type": "list"
+  },
+  {
+    "id": 4,
+    "name": "Remove empty idShort",
+    "category": "meta-model",
+    "type": "remove_if_empty",
+    "path": "idShort",
+    "empty_type": "string"
+  },
+  {
+    "id": 5,
+    "name": "Set file defaults",
+    "category": "meta-model",
+    "type": "set_default",
+    "selector": {
+      "modelType": "File"
+    },
+    "field": "value",
+    "conditions": [
+      {
+        "field": "contentType",
+        "value": "image/png",
+        "when": {"value": ""},
+        "set_to": "sample.png"
+      },
+      {
+        "field": "contentType",
+        "value": "application/pdf",
+        "when": {"value": ""},
+        "set_to": "sample.pdf"
+      }
+    ]
+  },
+  {
+    "id": 6,
+    "name": "AnnotatedRelationshipElement defaults",
+    "category": "meta-model",
+    "type": "set_default",
+    "selector": {
+      "modelType": "AnnotatedRelationshipElement"
+    },
+    "field": ["first.keys", "second.keys"],
+    "default": [{"type": "GlobalReference", "value": "EMPTY"}],
+    "conditions": [
+      {
+        "field": "first.keys",
+        "when": {},
+        "set_to": [{"type": "GlobalReference", "value": "EMPTY"}]
+      },
+      {
+        "field": "second.keys",
+        "when": {},
+        "set_to": [{"type": "GlobalReference", "value": "EMPTY"}]
+      }
+    ]
+  },
+  {
+    "id": 7,
+    "name": "Remove empty SubmodelElementCollection value",
+    "category": "meta-model",
+    "type": "remove_if_empty",
+    "selector": {
+      "modelType": "SubmodelElementCollection"
+    },
+    "path": "value",
+    "empty_type": "list"
+  },
+  {
+    "id": 8,
+    "name": "Change entityType to CoManagedEntity",
+    "category": "constraints",
+    "type": "conditional_transform",
+    "conditions": {
+      "if": {
+        "entityType": "SelfManagedEntity"
+      },
+      "and_missing": ["globalAssetId", "specificAssetId"],
+      "then": {
+        "entityType": "CoManagedEntity"
+      }
+    }
+  },
+  {
+    "id": 9,
+    "name": "MultiLanguageProperty defaults",
+    "category": "constraints",
+    "type": "set_default",
+    "selector": {
+      "modelType": "MultiLanguageProperty"
+    },
+    "field": "value",
+    "default": [{"language": "en", "text": "EMPTY"}],
+    "fix_empty_text": true
+  },
+  {
+    "id": 10,
+    "name": "Fix ConceptDescription to GlobalReference",
+    "category": "constraints",
+    "type": "transform_value",
+    "path": "semanticId.keys[].type",
+    "transform": {
+      "ConceptDescription": "GlobalReference"
+    }
+  },
+  {
+    "id": 11,
+    "name": "Remove empty ReferenceElement value",
+    "category": "meta-model",
+    "type": "remove_if_empty",
+    "selector": {
+      "modelType": "ReferenceElement"
+    },
+    "path": "value.keys",
+    "empty_type": "list"
+  },
+  {
+    "id": 12,
+    "name": "Remove idShort in SubmodelElementCollection",
+    "category": "meta-model",
+    "type": "remove_from_nested",
+    "selector": {
+      "typeValueListElement": "SubmodelElementCollection"
+    },
+    "path": "value[]",
+    "remove_key": "idShort"
+  },
+  {
+    "id": 13,
+    "name": "Property empty value default",
+    "category": "constraints",
+    "type": "set_default",
+    "selector": {
+      "modelType": "Property"
+    },
+    "field": "value",
+    "conditions": [
+      {
+        "field": "value",
+        "value": "",
+        "when": {"valueType": "xs:string"},
+        "set_to": null
+      }
+    ],
+    "default": "0"
+  },
+  {
+    "id": 14,
+    "name": "Fix language code en? to en",
+    "category": "constraints",
+    "type": "transform_value",
+    "selector": {
+      "modelType": "MultiLanguageProperty"
+    },
+    "path": "value[].language",
+    "transform": {
+      "en?": "en"
+    }
+  },
+  {
+    "id": 15,
+    "name": "Convert boolean strings to numeric",
+    "category": "constraints",
+    "type": "transform_value",
+    "selector": {
+      "valueType": "xs:boolean"
+    },
+    "path": "value",
+    "transform": {
+      "True": "1",
+      "False": "0"
+    }
+  },
+  {
+    "id": 16,
+    "name": "MultiLanguageProperty empty array",
+    "category": "meta-model",
+    "type": "set_default",
+    "selector": {
+      "modelType": "MultiLanguageProperty"
+    },
+    "field": "value",
+    "default": [{"language": "en", "text": "EMPTY"}],
+    "additional_fields": {
+      "valueId": {
+        "type": "ExternalReference",
+        "keys": [{"type": "GlobalReference", "value": "0173-1#07-ABK870#003"}]
+      }
+    }
+  },
+  {
+    "id": 17,
+    "name": "Add DataSpecification definition",
+    "category": "constraints",
+    "type": "set_default",
+    "selector": {
+      "modelType": "DataSpecificationIec61360"
+    },
+    "field": "definition",
+    "default": [{"language": "en", "text": "Check the IdShort"}]
+  },
+  {
+    "id": 18,
+    "name": "Remove BulkCount items",
+    "category": "meta-model",
+    "type": "remove_if_empty",
+    "selector": {
+      "idShort": "BulkCount",
+      "valueType": "xs:unsignedLong",
+      "modelType": "Property"
+    },
+    "path": "value",
+    "empty_type": "string",
+    "list_operation": true
+  }
+]
+

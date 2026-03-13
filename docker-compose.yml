@@ -1,19 +1,13 @@
-version: '3.8'
-
 services:
   backend:
     build:
-      context: ./Backend
+      context: ./cpp-project/BackendCpp
       dockerfile: Dockerfile
     container_name: aas-backend
     ports:
-      - "5000:5000"
+      - "5001:5001"
     environment:
-      - FLASK_ENV=production
-      - PYTHONPATH=/app
-      - PYTHONUNBUFFERED=1
-    volumes:
-      - ./Backend:/app
+      - SERVER_PORT=5001
     networks:
       - aas-network
     restart: unless-stopped

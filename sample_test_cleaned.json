@@ -1,0 +1,86 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "name": "John Doe",
+      "email": "john@example.com",
+      "addresses": [
+        {
+          "street": "123 Main St",
+          "city": "New York",
+          "zip": "10001"
+        }
+      ],
+      "orders": [
+        {
+          "orderId": "ORD-001",
+          "items": [
+            {
+              "productId": "PROD-123",
+              "name": "Laptop",
+              "price": 999.99
+            },
+            {
+              "productId": "PROD-456",
+              "name": "Mouse",
+              "price": 29.99
+            }
+          ]
+        }
+      ],
+      "metadata": {
+        "createdAt": "2024-01-15",
+        "lastLogin": "2024-01-29"
+      }
+    },
+    {
+      "id": 2,
+      "name": "Jane Smith",
+      "email": "jane@example.com",
+      "metadata": {
+        "createdAt": "2024-01-20",
+        "lastLogin": "2024-01-28"
+      }
+    }
+  ],
+  "products": [
+    {
+      "id": "PROD-123",
+      "name": "Laptop",
+      "price": 999.99,
+      "description": "High-performance laptop"
+    },
+    {
+      "id": "PROD-456",
+      "name": "Mouse",
+      "price": 29.99,
+      "description": "Wireless mouse",
+      "images": [
+        "mouse1.jpg",
+        "mouse2.jpg"
+      ]
+    },
+    {
+      "id": "PROD-789",
+      "name": "Keyboard",
+      "price": 79.99,
+      "description": "Mechanical keyboard"
+    }
+  ],
+  "settings": {
+    "theme": "dark",
+    "language": "en",
+    "notifications": {
+      "email": true,
+      "sms": false
+    }
+  },
+  "analytics": {
+    "pageViews": 1250,
+    "uniqueVisitors": 450
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "lastUpdated": "2024-01-29"
+  }
+}
