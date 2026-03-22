@@ -1,0 +1,26 @@
+# Production overrides for jsonsanitypro.de deployment
+# Used with: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# Frontend on 8080 (nginx reverse proxy serves 80/443)
+# Backend/frontend on resume-network so nginx can proxy to them
+
+services:
+  backend:
+    ports:
+      - "5001:5001"
+    networks:
+      - aas-network
+      - resume-network
+
+  frontend:
+    ports:
+      - "8080:80"
+    networks:
+      - aas-network
+      - resume-network
+
+networks:
+  aas-network:
+    driver: bridge
+  resume-network:
+    external: true
+    name: my-simple-resume_resume-network
