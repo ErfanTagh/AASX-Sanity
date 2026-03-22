@@ -260,227 +260,113 @@ window.displayIssueSummary = function(issues) {
   }, 0);
 };
 
-// Define handleFileUpload IMMEDIATELY so it's available when HTML onchange fires
-// Also make it available globally without window prefix for compatibility
-window.handleFileUpload = function(event) {
-  console.log("=== handleFileUpload called ===");
-  console.log("Event:", event);
-  console.log("Event target:", event.target);
-  
-  const file = event.target.files[0];
-  if (!file) {
-    console.log("No file selected");
-    return;
+// Load an example JSON file from the server
+window.loadExampleFile = async function(filename) {
+  try {
+    showLoading("Loading example...");
+    const response = await fetch("/" + filename);
+    if (!response.ok) throw new Error("Example not found: " + filename);
+    const jsonText = await response.text();
+    const blob = new Blob([jsonText], { type: "application/json" });
+    const file = new File([blob], filename, { type: "application/json" });
+    hideLoading();
+    processUploadedFile(file);
+  } catch (err) {
+    hideLoading();
+    console.error(err);
+    alert("Could not load example. Make sure the backend is running and " + filename + " is available.");
   }
-  
-  // Mark event as handled to prevent old handler from running
-  event.handledByQuickClean = true;
-  event.stopPropagation();
-  event.preventDefault();
-  
-  console.log("File selected:", file.name);
-  console.log("File size:", file.size, "bytes");
-  console.log("File type:", file.type);
-  
-  // Store original filename
+};
+
+// Shared logic: process a File (from upload or example)
+function processUploadedFile(file) {
   window.originalFilename = file.name;
-  
-  // Show filename immediately - CRITICAL VISUAL FEEDBACK
   const fileNameDisplay = document.getElementById('uploadedFileName');
   const fileNameText = document.getElementById('fileNameText');
   const uploadAreaEl = document.getElementById('uploadArea');
   const resetButton = document.getElementById('resetButton');
-  
-  console.log("UI Elements:", {
-    fileNameDisplay: !!fileNameDisplay,
-    fileNameText: !!fileNameText,
-    uploadArea: !!uploadAreaEl,
-    resetButton: !!resetButton
-  });
-  
   if (fileNameDisplay && fileNameText) {
     fileNameText.textContent = file.name;
     fileNameDisplay.style.display = 'block';
-    console.log("Filename displayed");
-  } else {
-    console.error("Could not find fileNameDisplay or fileNameText elements!");
   }
-  
-  // Hide rule settings card - it's now integrated into scan results
   const ruleSettingsCard = document.getElementById('ruleSettingsCard');
-  if (ruleSettingsCard) {
-    ruleSettingsCard.style.display = 'none';
-    console.log("Rule settings card hidden (integrated into scan results)");
-  }
-  
-  if (uploadAreaEl) {
-    uploadAreaEl.style.display = 'none';
-    console.log("Upload area hidden");
-  }
-  
-  if (resetButton) {
-    resetButton.style.display = 'block';
-    console.log("Reset button shown");
-  }
-  
-  // Show loading
-  console.log("Showing loading indicator...");
+  if (ruleSettingsCard) ruleSettingsCard.style.display = 'none';
+  if (uploadAreaEl) uploadAreaEl.style.display = 'none';
+  if (resetButton) resetButton.style.display = 'block';
+
   showLoading("Scanning for issues...");
-  
-  // First scan for issues
-  console.log("Creating FormData...");
   const formData = new FormData();
   formData.append("file", file);
-  console.log("FormData created, file appended");
-  
-  console.log("Making fetch request to /api/scan-issues");
-  fetch("/api/scan-issues", {
-    method: "POST",
-    body: formData,
-  })
+  fetch("/api/scan-issues", { method: "POST", body: formData })
     .then((response) => {
-      console.log("Response status:", response.status, response.statusText);
-      if (!response.ok) {
-        return response.text().then(text => {
-          console.error("Response error:", text);
-          throw new Error(`Scan failed: ${response.status} ${response.statusText}`);
-        });
-      }
+      if (!response.ok) return response.text().then(t => { throw new Error(t); });
       return response.json();
     })
     .then((scanResult) => {
-      console.log("Scan result received:", scanResult);
       hideLoading();
-      
       if (!scanResult || !scanResult.issues) {
-        console.error("Invalid scan result format:", scanResult);
-        alert("Invalid response from server. Please check the console for details.");
+        alert("Invalid response from server.");
         return;
       }
-      
-      // Read and store the JSON
       const reader = new FileReader();
       reader.onload = function(e) {
         try {
           window.originalJson = JSON.parse(e.target.result);
-          window.currentState = JSON.parse(JSON.stringify(window.originalJson)); // Initialize current state
-          console.log("JSON parsed successfully");
-          console.log("originalJson stored globally:", !!window.originalJson);
-          console.log("currentState initialized:", !!window.currentState);
-          
-          // Display issue summary
+          window.currentState = JSON.parse(JSON.stringify(window.originalJson));
           displayIssueSummary(scanResult.issues);
-          
-          // Display the uploaded JSON
           displayUploadedJSON(window.originalJson, file.name);
-          
-          // CRITICAL: Start processing for Rule Validation tab IMMEDIATELY
-          // Find the first rule that has changes, then load ALL changes for that rule
-          console.log("Starting Rule Validation processing...");
           showLoading("Preparing Rule Validation...");
-          
           findFirstRuleWithChanges(window.originalJson, [])
-            .then(ruleId => {
-              if (ruleId) {
-                console.log(`Found first rule with changes: Rule ${ruleId}`);
-                return loadAllChangesForRule(window.originalJson, ruleId, []);
-              } else {
-                console.log("No rules with changes found");
-                return null;
-              }
-            })
-            .then(data => {
+            .then(ruleId => ruleId ? loadAllChangesForRule(window.originalJson, ruleId, []) : null)
+            .then((data) => {
               hideLoading();
-              
               if (!data || data.count === 0) {
                 const validationTabContent = document.getElementById('validation');
                 if (validationTabContent) {
-                  validationTabContent.innerHTML = `
-                    <div class="card shadow">
-                      <div class="card-body text-center p-5">
-                        <i class="bi bi-check-circle" style="font-size: 4rem; color: #22c55e; margin-bottom: 1rem;"></i>
-                        <h3 class="mb-3">JSON is Already Clean</h3>
-                        <p class="text-muted mb-4">
-                          No rule changes were needed. Your JSON file is already clean!
-                        </p>
-                      </div>
-                    </div>
-                  `;
+                  validationTabContent.innerHTML = `<div class="card shadow"><div class="card-body text-center p-5"><i class="bi bi-check-circle" style="font-size: 4rem; color: #22c55e;"></i><h3 class="mb-3">JSON is Already Clean</h3><p class="text-muted">No rule changes were needed.</p></div></div>`;
                 }
                 return;
               }
-              
-              // Store changes globally
               window.currentRule = data.ruleId;
-              window.allChanges = data.changes.map(c => ({
-                ...c,
-                accepted: false,
-                rejected: false
-              }));
+              window.allChanges = data.changes.map(c => ({ ...c, accepted: false, rejected: false }));
               window.skipRules = [];
               window.pendingCount = data.count;
-              
-              // Initialize Changes & Results tab
               if (typeof updateChangesResultsTab === 'function') {
-                // Get cleaned JSON (will be available after proceedWithCleaning)
-                // For now, use original JSON as placeholder
-                setTimeout(() => {
-                  if (window.lastCleanedJson) {
-                    updateChangesResultsTab(window.originalJson, window.lastCleanedJson);
-                  }
-                }, 500);
+                setTimeout(() => { if (window.lastCleanedJson) updateChangesResultsTab(window.originalJson, window.lastCleanedJson); }, 500);
               }
-              
-              const ruleNames = {
-                1: "Remove empty lists",
-                2: "Remove empty strings",
-                3: "Remove null values",
-                4: "Remove empty objects",
-                5: "Remove duplicates",
-                6: "Convert boolean strings",
-                7: "Fix language codes"
-              };
-              
-              // Populate validation tab with all changes
+              const ruleNames = { 1: "Remove empty lists", 2: "Remove empty strings", 3: "Remove null values", 4: "Remove empty objects", 5: "Remove duplicates", 6: "Convert boolean strings", 7: "Fix language codes" };
               const validationTabContent = document.getElementById('validation');
               if (validationTabContent && window.createAllChangesCard) {
                 setTimeout(() => {
-                  const card = window.createAllChangesCard(
-                    data.ruleId,
-                    window.allChanges,
-                    ruleNames[data.ruleId] || `Rule ${data.ruleId}`
-                  );
+                  const card = window.createAllChangesCard(data.ruleId, window.allChanges, ruleNames[data.ruleId] || `Rule ${data.ruleId}`);
                   validationTabContent.innerHTML = "";
                   validationTabContent.appendChild(card);
-                  console.log(`✓ Validation tab populated with ${data.count} changes for Rule ${data.ruleId}`);
                 }, 100);
               }
             })
-            .catch(error => {
-              hideLoading();
-              console.error("Error loading rule changes:", error);
-              // Don't show alert - this is background processing, user can still use Quick Clean
-              console.warn("Rule Validation tab will not be pre-populated, but Quick Clean will still work");
-            });
-          
-        } catch (error) {
+            .catch(err => { hideLoading(); console.warn("Rule Validation:", err); });
+        } catch (err) {
           hideLoading();
-          console.error("Error parsing JSON:", error);
-          alert("Error parsing JSON file: " + error.message);
+          alert("Error parsing JSON: " + err.message);
         }
       };
-      reader.onerror = function(error) {
-        hideLoading();
-        console.error("FileReader error:", error);
-        alert("Error reading file: " + error.message);
-      };
+      reader.onerror = () => { hideLoading(); alert("Error reading file"); };
       reader.readAsText(file);
     })
-    .catch((error) => {
+    .catch((err) => {
       hideLoading();
-      console.error("Scan error:", error);
-      alert("Error scanning file: " + error.message + "\n\nPlease check:\n1. Backend is running\n2. Browser console for more details");
+      alert("Error scanning: " + err.message + "\n\nIs the backend running?");
     });
+}
+
+// Define handleFileUpload IMMEDIATELY so it's available when HTML onchange fires
+window.handleFileUpload = function(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  event.handledByQuickClean = true;
+  event.stopPropagation();
+  event.preventDefault();
+  processUploadedFile(file);
 };
 
 // Make createShellCard globally accessible

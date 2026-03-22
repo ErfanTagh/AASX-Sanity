@@ -6,6 +6,8 @@ COPY index.html /usr/share/nginx/html/
 COPY script.js /usr/share/nginx/html/
 COPY styles.css /usr/share/nginx/html/
 COPY bootstrap-5.0.2-dist/ /usr/share/nginx/html/bootstrap-5.0.2-dist/
+# Copy example JSON files for "Try an example" on landing page
+COPY sample_test.json sample_test_with_duplicates.json test_simple.json /usr/share/nginx/html/
 
 # Copy nginx configuration
 COPY nginx.conf /etc/nginx/nginx.conf

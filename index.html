@@ -70,6 +70,22 @@
               <small class="upload-hint">Supports .json files</small>
             </div>
           </div>
+
+          <!-- Try an example -->
+          <div class="mt-4 pt-3 border-top border-secondary">
+            <p class="text-muted mb-2 small"><i class="bi bi-lightbulb me-1"></i>Try an example</p>
+            <div class="d-flex flex-wrap gap-2">
+              <button type="button" class="btn btn-outline-info btn-sm" onclick="loadExampleFile('sample_test.json')">
+                <i class="bi bi-file-earmark-code me-1"></i>Sample (users, orders)
+              </button>
+              <button type="button" class="btn btn-outline-info btn-sm" onclick="loadExampleFile('sample_test_with_duplicates.json')">
+                <i class="bi bi-collection me-1"></i>With duplicates
+              </button>
+              <button type="button" class="btn btn-outline-info btn-sm" onclick="loadExampleFile('test_simple.json')">
+                <i class="bi bi-file-earmark me-1"></i>Simple
+              </button>
+            </div>
+          </div>
           
           <!-- File Name Display -->
           <div id="uploadedFileName" class="uploaded-file-display" style="display: none;">
