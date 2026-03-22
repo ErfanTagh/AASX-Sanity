@@ -18,7 +18,7 @@ services:
       dockerfile: Dockerfile.frontend
     container_name: aas-frontend
     ports:
-      - "80:80"
+      - "8080:80"  # 8080 to avoid conflict with nginx; prod uses same
     volumes:
       - ./index.html:/usr/share/nginx/html/index.html
       - ./script.js:/usr/share/nginx/html/script.js

@@ -1,7 +1,7 @@
 # Production overrides for jsonsanitypro.de deployment
 # Used with: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
-# Frontend on 8080 (nginx reverse proxy serves 80/443)
-# Backend/frontend on resume-network so nginx can proxy to them
+# Frontend on 8080 (port 80 is used by nginx); nginx proxies to aas-frontend:80
+# Backend/frontend on resume-network so nginx can reach them
 
 services:
   backend:
@@ -12,8 +12,6 @@ services:
       - resume-network
 
   frontend:
-    ports:
-      - "8080:80"
     networks:
       - aas-network
       - resume-network
