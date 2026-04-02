@@ -26,4 +26,13 @@ jobs:
             docker compose -f docker-compose.yml -f docker-compose.prod.yml build --no-cache
             echo "Restarting containers..."
             docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+            echo "Restoring jsonsanitypro.de nginx vhost (reverse proxy lives in resume_nginx, not in this repo's Docker)..."
+            if [ -f jsonsanitypro.conf ]; then
+              cp jsonsanitypro.conf /root/my-simple-resume/nginx/conf.d/00-jsonsanitypro.conf
+              docker exec resume_nginx nginx -t
+              docker exec resume_nginx nginx -s reload
+              echo "Nginx reloaded for jsonsanitypro.de"
+            else
+              echo "WARNING: jsonsanitypro.conf missing in repo clone"
+            fi
             echo "Deploy complete. Website updated."
